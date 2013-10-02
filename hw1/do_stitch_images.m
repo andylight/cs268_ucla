@@ -52,7 +52,8 @@ for gi=1:length(comps)
     disp(sprintf('Finished stitch_graph (%.4fs)', dur_stitchgraph));
 
     [x_origin, y_origin] = get_origin(G);
-    canvas = zeros([1000 1000 3]);
+    [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
+    canvas = zeros([hcanvas wcanvas 3]);
     for i=1:length(G)
         curcell = G{i};
         imgid = curcell{1};
@@ -103,10 +104,27 @@ function [w, h] = compute_canvas_size(imgs, G)
 w = 0; h = 0;
 for imgid=1:length(imgs)
     img_i = imgs{imgid};
-    T_i = G{imgid};
+    T_i = get_T(G, imgid);
+    if isnan(T_i)   % imgid is NOT within this component
+        continue;
+    end
     wI = size(img_i, 2); hI = size(img_i, 1);
     pt = T_i * [wI hI 1]'; % Lowerright corner after transformation
     w = max([pt(1), w]); h = max([pt(2), h]);
 end
 end
-    
+
+function T = get_T(G, imgid)
+%GET_T Returns the transformation matrix T_imgid for a given imgid.
+%Unfortunately, entries of G are NOT sorted by imgid (since a particular
+%image i may NOT be present in G).
+T = nan;
+for i=1:length(G)
+    g_i = G{i};
+    imgid_i = g_i{1};
+    T_i = g_i{2};
+    if imgid == imgid_i
+        T = T_i;
+    end
+end
+end
