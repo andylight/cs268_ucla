@@ -1,4 +1,4 @@
-function [Istitch_all, G_all] = do_stitch_images(imgsdir, ptsdir, varargin)
+function [Istitch_all, G_all, varargout] = do_stitch_images(imgsdir, ptsdir, varargin)
 %DO_STITCH_IMAGES Given images and feature point locations, compute the
 %necessary transformations G that correctly 'stitch' together all images.
 %
@@ -14,6 +14,9 @@ function [Istitch_all, G_all] = do_stitch_images(imgsdir, ptsdir, varargin)
 %       Istitch_all{i} = Istitch_i
 %   G_all is an (1xK) cell array such that:
 %       G_all{i} = G_i
+%[Istitch_all, G_all, Iblend_all] = do_stitch_images(imgsdir, ptsdir, ...)
+%   Also include blended images Iblend_all. Blended images attempt to avoid
+%artifacts in the image via various strategies.
 %
 %Parameters:
 %   float 'T' -- Threshold for determining point correspondences, in [0,1].
@@ -22,6 +25,10 @@ function [Istitch_all, G_all] = do_stitch_images(imgsdir, ptsdir, varargin)
 %                   correspondences. One of:
 %       'ssd': Sum of Square Differences. Works best.
 %       'ncc': Normalized Cross Correlaction. Doesn't work right (TODO).
+%   str 'blend' -- Image blending method to reduce artifacts. One of:
+%       'overwrite': No blending.
+%       'average': When stitching images I0, I1; output average pixel
+%                  intensity value for overlapping regions.
 %   logical 'show_stitches' -- Display all Istitch in Istitch_all in
 %                              separate figures.
 i_p = inputParser;
@@ -29,12 +36,14 @@ i_p.addRequired('imgsdir', @ischar);
 i_p.addRequired('ptsdir', @ischar);
 i_p.addParamValue('T', 0.05, @isnumeric);
 i_p.addParamValue('method', 'ssd', @ischar);
+i_p.addParamValue('blend', 'overwrite', @ischar);
 i_p.addParamValue('show_stitches', false, @islogical);
 i_p.parse(imgsdir, ptsdir, varargin{:});
 imgsdir = i_p.Results.imgsdir;
 ptsdir = i_p.Results.ptsdir;
 T = i_p.Results.T;
 method = i_p.Results.method;
+blend = i_p.Results.blend;
 show_stitches = i_p.Results.show_stitches;
 
 imgpaths = sort(getAllFiles(imgsdir));
@@ -68,6 +77,7 @@ if numel(comps) > 1
 end
 
 Istitch_all = {};   G_all = {};
+Iblend_all = {};
 
 for gi=1:length(comps)
     comp = comps{gi};
@@ -82,6 +92,7 @@ for gi=1:length(comps)
     [x_origin, y_origin] = get_origin(G);
     [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
     canvas = zeros([hcanvas wcanvas 3]);
+    canvas_blend = zeros([hcanvas wcanvas 3]);
     for i=1:length(G)
         curcell = G{i};
         imgid = curcell{1};
@@ -99,17 +110,23 @@ for gi=1:length(comps)
         j0 = tx - x_origin + 1; j1 = j0 + wI - 1;
         i0 = int32(i0); i1 = int32(i1);
         j0 = int32(j0); j1 = int32(j1);
-        canvas(i0:i1, j0:j1, 1) = I(:,:,1);
-        canvas(i0:i1, j0:j1, 2) = I(:,:,2);
-        canvas(i0:i1, j0:j1, 3) = I(:,:,3);
+        canvas = imgpaste(canvas, I, j0, i0);
+        canvas_blend = imgpaste(canvas_blend, I, j0, i0, 'method', blend);
     end
     Istitch_all{gi} = canvas;
+    Iblend_all{gi}  = canvas_blend;
     if show_stitches
-        figure; imshow(uint8(canvas), []);
+        figure;
+        subplot(1, 2, 1); imshow(uint8(canvas), []);
+        title('Raw Image stitch');
+        subplot(1, 2, 2); imshow(uint8(canvas_blend), []);
+        title(sprintf('Blended Image Stitch (method=%s)', blend));
         suptitle(sprintf('Image stitch for component=%d/%d\nimgids=%s', gi, length(comps), str_vec(comp)));
     end
 end
-
+if nargout == 3
+    varargout{1} = Iblend_all;
+end
 end
 
 function [theta, tx, ty] = get_rigid_params(G)
@@ -129,7 +146,8 @@ end
 function [w, h] = compute_canvas_size(imgs, G)
 %COMPUTE_CANVAS_SIZE Computes the total size spanned by the images in IMGS
 %after being transformed by G.
-w = 0; h = 0;
+x0 = 0; y0 = 0;
+x1 = 0; y1 = 0;
 for imgid=1:length(imgs)
     img_i = imgs{imgid};
     T_i = get_T(G, imgid);
@@ -137,10 +155,15 @@ for imgid=1:length(imgs)
         continue;
     end
     wI = size(img_i, 2); hI = size(img_i, 1);
-    pt = T_i * [wI hI 1]'; % Lowerright corner after transformation
-    w = uint32(max([pt(1), w]));
-    h = uint32(max([pt(2), h]));
+    pt0 = T_i * [1 1 1]';   % Upperright corner after T
+    pt1 = T_i * [wI hI 1]'; % Lowerright corner after T
+    x0 = min([pt0(1), x0]);
+    y0 = min([pt0(2), y0]);
+    x1 = max([pt1(1), x1]);
+    y1 = max([pt1(2), y1]);
 end
+w = uint32(x1 - x0 + 1);
+h = uint32(y1 - y0 + 1);
 end
 
 function T = get_T(G, imgid)
