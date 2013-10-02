@@ -1,14 +1,41 @@
-function [Istitch, G] = do_stitch_images(imgsdir, ptsdir, varargin)
+function [Istitch_all, G_all] = do_stitch_images(imgsdir, ptsdir, varargin)
 %DO_STITCH_IMAGES Given images and feature point locations, compute the
 %necessary transformations G that correctly 'stitch' together all images.
+%
+%This function will output multiple Istitch/G pairings if it thinks that
+%it found images that belong to different mosaics. This could either occur
+%if IMGSDIR contains multiple image mosaics, or the point correspondence
+%algorithm failed.
+%
+%[Istitch_all, G_all] = do_stitch_images(imgsdir, ptsdir, ...)
+%   Stitch images in imgsdir with points ptsdir. Let K be the number of
+%detected mosaics.
+%   Istitch_all is an (1xK) cell array, such that:
+%       Istitch_all{i} = Istitch_i
+%   G_all is an (1xK) cell array such that:
+%       G_all{i} = G_i
+%
+%Parameters:
+%   float 'T' -- Threshold for determining point correspondences, in [0,1].
+%                Lower values is stricter, higher is looser.
+%   str 'method' -- Image similarity metric to use when determining point
+%                   correspondences. One of:
+%       'ssd': Sum of Square Differences. Works best.
+%       'ncc': Normalized Cross Correlaction. Doesn't work right (TODO).
+%   logical 'show_stitches' -- Display all Istitch in Istitch_all in
+%                              separate figures.
 i_p = inputParser;
 i_p.addRequired('imgsdir', @ischar);
 i_p.addRequired('ptsdir', @ischar);
 i_p.addParamValue('T', 0.05, @isnumeric);
+i_p.addParamValue('method', 'ssd', @ischar);
+i_p.addParamValue('show_stitches', false, @islogical);
 i_p.parse(imgsdir, ptsdir, varargin{:});
 imgsdir = i_p.Results.imgsdir;
 ptsdir = i_p.Results.ptsdir;
 T = i_p.Results.T;
+method = i_p.Results.method;
+show_stitches = i_p.Results.show_stitches;
 
 imgpaths = sort(getAllFiles(imgsdir));
 imgs = cell([1, length(imgpaths)]); imgs_color = cell([1, length(imgpaths)]);
@@ -28,7 +55,7 @@ if exist(storedname, 'file') == 2
     matches = loadstruct.matches;
 else
     tic;
-    [graph, matches] = make_graph(imgs, pts, 'T', T);
+    [graph, matches] = make_graph(imgs, pts, 'T', T, 'method', method);
     dur_makegraph = toc;
     disp(sprintf('Finished constructing graph (%.4fs)', dur_makegraph));
     save(storedname, 'graph', 'matches', 'T');
@@ -40,7 +67,7 @@ if numel(comps) > 1
     disp(sprintf('    Nb. components: %d', numel(comps)));
 end
 
-canvases = {};  % Stores all image stitches for each connected component
+Istitch_all = {};   G_all = {};
 
 for gi=1:length(comps)
     comp = comps{gi};
@@ -48,6 +75,7 @@ for gi=1:length(comps)
     history = containers.Map('KeyType', 'int32', 'ValueType', 'logical');
     tic;
     G = stitch_graph(rootnode, graph, matches, pts, history);
+    G_all{gi} = G;
     dur_stitchgraph = toc;
     disp(sprintf('Finished stitch_graph (%.4fs)', dur_stitchgraph));
 
@@ -75,12 +103,12 @@ for gi=1:length(comps)
         canvas(i0:i1, j0:j1, 2) = I(:,:,2);
         canvas(i0:i1, j0:j1, 3) = I(:,:,3);
     end
-    canvases{gi} = canvas;
-    figure; imshow(uint8(canvas), []);
-    suptitle(sprintf('Image stitch for component=%d/%d\nimgids=%s', gi, length(comps), str_vec(comp)));
+    Istitch_all{gi} = canvas;
+    if show_stitches
+        figure; imshow(uint8(canvas), []);
+        suptitle(sprintf('Image stitch for component=%d/%d\nimgids=%s', gi, length(comps), str_vec(comp)));
+    end
 end
-
-Istitch = canvases{1}; % Arbitrarily output the first image stitch
 
 end
 
@@ -110,7 +138,8 @@ for imgid=1:length(imgs)
     end
     wI = size(img_i, 2); hI = size(img_i, 1);
     pt = T_i * [wI hI 1]'; % Lowerright corner after transformation
-    w = max([pt(1), w]); h = max([pt(2), h]);
+    w = uint32(max([pt(1), w]));
+    h = uint32(max([pt(2), h]));
 end
 end
 
