@@ -8,6 +8,10 @@ T = 0.07;
 method = 'ssd';     % Sum-of-Square-Differences
 blend  = 'meanshift';
 
+if exist('getAllFiles', 'var') == 0
+    addpath_ek();   % Add functions from: ek_util
+end
+
 [Istitch_all, G_all, Iblend_all] = do_stitch_images(imgsdir, ptsdir, ...
                                                     'T', T, ...
                                                     'method', method, ...
