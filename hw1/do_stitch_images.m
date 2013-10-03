@@ -31,6 +31,7 @@ function [Istitch_all, G_all, varargout] = do_stitch_images(imgsdir, ptsdir, var
 %                  intensity value for overlapping regions.
 %   logical 'show_stitches' -- Display all Istitch in Istitch_all in
 %                              separate figures.
+%% Parse inputs
 i_p = inputParser;
 i_p.addRequired('imgsdir', @ischar);
 i_p.addRequired('ptsdir', @ischar);
@@ -46,6 +47,7 @@ method = i_p.Results.method;
 blend = i_p.Results.blend;
 show_stitches = i_p.Results.show_stitches;
 
+%% Load images and data
 imgpaths = sort(getAllFiles(imgsdir));
 imgs = cell([1, length(imgpaths)]); imgs_color = cell([1, length(imgpaths)]);
 pts = cell([1, length(imgpaths)]);
@@ -56,6 +58,7 @@ for i=1:length(imgpaths)
     imgs_color{i} = imread_gray(imgpath, 'range', [0 1], 'no_gray', true);
 end
 
+%% Compute point correspondences
 storedname = sprintf('graph_data_T_%.2f.mat', T);
 if exist(storedname, 'file') == 2
     disp(sprintf('[Loading graph, matches from %s]', storedname));
@@ -76,9 +79,8 @@ if numel(comps) > 1
     disp(sprintf('    Nb. components: %d', numel(comps)));
 end
 
-Istitch_all = {};   G_all = {};
-Iblend_all = {};
-
+%% Compute connected components of the graph
+G_all = {};
 for gi=1:length(comps)
     comp = comps{gi};
     rootnode = comp{1};
@@ -88,7 +90,12 @@ for gi=1:length(comps)
     G_all{gi} = G;
     dur_stitchgraph = toc;
     disp(sprintf('Finished stitch_graph (%.4fs)', dur_stitchgraph));
+end
 
+%% Finally, compute image mosaic for each connected component
+Istitch_all = {}; Iblend_all = {};
+for gi=1:length(comps)
+    G = G_all{gi};
     [x_origin, y_origin] = get_origin(G);
     [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
     canvas = zeros([hcanvas wcanvas 3]);
