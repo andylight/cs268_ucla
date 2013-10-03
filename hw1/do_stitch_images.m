@@ -53,7 +53,7 @@ pts = cell([1, length(imgpaths)]);
 for i=1:length(imgpaths)
     imgpath = imgpaths{i};  datapath = get_data_path(imgpath, ptsdir);
     imgs{i} = imread_gray(imgpath, 'range', [0 1]); pts{i} = load(datapath);
-    imgs_color{i} = double(imread(imgpath));
+    imgs_color{i} = imread_gray(imgpath, 'range', [0 1], 'no_gray', true);
 end
 
 storedname = sprintf('graph_data_T_%.2f.mat', T);
@@ -92,7 +92,7 @@ for gi=1:length(comps)
     [x_origin, y_origin] = get_origin(G);
     [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
     canvas = zeros([hcanvas wcanvas 3]);
-    canvas_blend = zeros([hcanvas wcanvas 3]);
+    canvas_blend = nan([hcanvas wcanvas 3]);
     for i=1:length(G)
         curcell = G{i};
         imgid = curcell{1};
@@ -112,6 +112,7 @@ for gi=1:length(comps)
         j0 = int32(j0); j1 = int32(j1);
         canvas = imgpaste(canvas, I, j0, i0);
         canvas_blend = imgpaste(canvas_blend, I, j0, i0, 'method', blend);
+
     end
     Istitch_all{gi} = canvas;
     Iblend_all{gi}  = canvas_blend;
