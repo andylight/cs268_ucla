@@ -8,7 +8,7 @@ function [Iout, varargout] = imgpaste(I, patch, x, y, varargin)
 % rectangle modified by imgpaste.
 M_OVERWRITE = 'overwrite';
 M_AVERAGE   = 'average';
-M_MEANSHIFT = 'meanshift';
+M_SMARTCOPY = 'smartcopy';
 %% Argument Handling
 i_p = inputParser;
 i_p.addRequired('I', @isnumeric);
@@ -54,34 +54,12 @@ elseif strcmp(method, M_AVERAGE)
         patch_blended = (Iout_patch + patch) / 2;
         Iout(y:yend, x:xend) = patch_blended;
     end
-elseif strcmp(method, M_MEANSHIFT)
-    % Assume that I, patch differ only by a constant difference, i.e.:
-    %   I = patch + t;
-    %xstart = nanmin([nanmax([firstnan_row(Iout, x, y), x]), x+size(patch,2)-1]);
-    %ystart = nanmin([nanmax([firstnan_col(Iout, x, y), y]), y+size(patch,1)-1]);
+elseif strcmp(method, M_SMARTCOPY)
     if is_rgb_I
-        Ioverlap = Iout(y:nanmin([yend, firstnan_col(Iout, x, y)]), ...
-                        x:nanmin([xend, firstnan_row(Iout, x, y)]), ...
-                        :);
-        mean1_r = mean2(Ioverlap(:,:,1));
-        mean1_g = mean2(Ioverlap(:,:,2));
-        mean1_b = mean2(Ioverlap(:,:,3));
-        mean2_r = mean2(patch(:,:,1));
-        mean2_g = mean2(patch(:,:,2));
-        mean2_b = mean2(patch(:,:,3));
-        patch_shift = patch;
-        if ~isnan(mean1_r)
-            patch_shift(:,:,1) = patch_shift(:,:,1) + (mean1_r - mean2_r);
-            patch_shift(:,:,2) = patch_shift(:,:,2) + (mean1_g - mean2_g);
-            patch_shift(:,:,3) = patch_shift(:,:,3) + (mean1_b - mean2_b);        
-            patch_shift(patch_shift > 1) = 1;
-            patch_shift(patch_shift < 0) = 0;
-        end
-        %Iout(y:yend, x:xend, :) = patch_shift;
         % Don't paste pixels from patch_shift that are already present in
-        % Iout (thish can introduce image artifacts).
+        % Iout (this can introduce image artifacts).
         curmask = repmat(mask(y:yend, x:xend), [1 1 3]);
-        patch_masked = patch_shift .* curmask;
+        patch_masked = patch .* curmask;
         Iout(y:yend, x:xend, :) = Iout(y:yend, x:xend, :) + patch_masked;
     else
         Ioverlap = Iout(y:min([yend, firstnan_row(Iout, x, y)]), ...

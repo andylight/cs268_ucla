@@ -94,6 +94,8 @@ end
 
 %% Finally, compute image mosaic for each connected component
 Istitch_all = {}; Iblend_all = {};
+extents_all = {};   % extents_all{gi}{imgid} := coordinates of pasted image
+                    % within reference frame of gi
 for gi=1:length(comps)
     G = G_all{gi};
     [x_origin, y_origin] = get_origin(G);
@@ -101,6 +103,7 @@ for gi=1:length(comps)
     canvas = zeros([hcanvas wcanvas 3]);
     canvas_blend = zeros([hcanvas wcanvas 3]);
     mask = ones([hcanvas wcanvas]);
+    extents = {};
     for i=1:length(G)
         imgid = G{i}{1};
         T = G{i}{2};
@@ -115,12 +118,14 @@ for gi=1:length(comps)
         wI = size(I, 2); hI = size(I, 1);
         i0 = int32(ty - y_origin + 1); i1 = int32(i0 + hI - 1);
         j0 = int32(tx - x_origin + 1); j1 = int32(j0 + wI - 1);
-        canvas = imgpaste(canvas, I, j0, i0);
+        canvas = imgpaste(canvas, I, j0, i0, 'method', 'overwrite');
         [canvas_blend, pt_ul, pt_lr] = imgpaste(canvas_blend, I, j0, i0, 'method', blend, 'mask', mask);
-        mask(pt_ul(2):pt_lr(2), pt_ul(1):pt_lr(1)) = 0;        
+        mask(pt_ul(2):pt_lr(2), pt_ul(1):pt_lr(1)) = 0;
+        extents{i} = {pt_ul, pt_lr};
     end
     Istitch_all{gi} = canvas;
     Iblend_all{gi}  = canvas_blend;
+    extents_all{gi} = extents;
     if show_stitches
         figure;
         subplot(1, 2, 1); imshow(uint8(canvas), []);
@@ -132,6 +137,10 @@ for gi=1:length(comps)
 end
 if nargout == 3
     varargout{1} = Iblend_all;
+end
+if nargout == 4
+    varargout{1} = Iblend_all;
+    varargout{2} = extents_all;
 end
 end
 
