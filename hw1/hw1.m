@@ -8,7 +8,7 @@ T = 0.07;
 method = 'ssd';     % Sum-of-Square-Differences
 blend  = 'meanshift';
 
-if exist('getAllFiles', 'var') == 0
+if exist('getAllFiles') == 0
     addpath_ek();   % Add functions from: ek_util
 end
 
