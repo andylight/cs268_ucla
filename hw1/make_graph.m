@@ -22,7 +22,6 @@ G = zeros([numel(imgs), numel(imgs)]);
 for i=1:length(imgs)
     I_i = imgs{i};
     pts_i = pts{i};
-    tic;
     for j=i+1:length(imgs)
         I_j = imgs{j};
         pts_j = pts{j};
@@ -34,9 +33,6 @@ for i=1:length(imgs)
             G(i, j) = 1;
             G(j, i) = 1;
         end
-        %disp(sprintf('imgs i=%d j=%d nb_matches=%d', i, j, nb_matches));
     end
-    dur = toc;
-    disp(sprintf('i=%d/%d done (Time: %.4fs)', i, length(imgs), dur));
 end
 end

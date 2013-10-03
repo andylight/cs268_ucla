@@ -1,6 +1,12 @@
 function [Imosaic, G] = hw1()
 %HW1 Performs the image stitching, outputing the final image mosaic, as
 %well as the transformations G_i for each image img_i.
+% Imosaic is an RGB image.
+% G is a cell array of length N (where N is the number of images) s.t.:
+%   G{i} := a cell array of the form:
+%       {int imgid, matrix T}
+%     where T is the 3x3 transformation matrix that maps image IMGID to
+%     the common reference system.
 imgsdir = 'imgs';
 ptsdir  = 'ptsdata';
 

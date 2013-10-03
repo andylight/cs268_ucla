@@ -67,6 +67,7 @@ if exist(storedname, 'file') == 2
     matches = loadstruct.matches;
 else
     tic;
+    disp('Computing point correspondences...');
     [graph, matches] = make_graph(imgs, pts, 'T', T, 'method', method);
     dur_makegraph = toc;
     disp(sprintf('Finished constructing graph (%.4fs)', dur_makegraph));
