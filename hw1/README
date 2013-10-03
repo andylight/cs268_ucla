@@ -9,14 +9,14 @@ Instructions:
 
 Run the hw1.m function at the Matlab interactive prompt:
 
-    >> [Istitch, G] = hw1();
+    >> [Imosaic, G] = hw1();
 
 This will compute:
     a.) The point correspondences between images in 'imgs' and points
         in 'ptsdata'
     b.) Determine the rigid transformations that align each image to
         a common coordinate frame. (G)
-    c.) Create the mosaic while reducing image artifacts (Istitch).
+    c.) Create the mosaic while reducing image artifacts (Iblend).
 
 Requires Matlab2013a or later.
     

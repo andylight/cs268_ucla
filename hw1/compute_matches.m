@@ -10,6 +10,7 @@ function [M1, M2, F1, F2] = compute_matches(I1, P1, I2, P2, varargin)
 %       M1(i) = j if point p_i from I1 corresponds to point p_j from I2,
 %       M1(i) = NaN if no correspondence is found
 %       Fi(i) = NaN if no correspondence found, or an error metric
+%% Arguments
 i_p = inputParser;
 i_p.addRequired('I1', @isnumeric);
 i_p.addRequired('P1', @isnumeric);
@@ -29,7 +30,7 @@ T = i_p.Results.T;
 w_win = i_p.Results.w_win;  h_win = i_p.Results.h_win;
 method = i_p.Results.method;
 interactive = i_p.Results.interactive;
-
+%%
 w1 = size(I1, 2);   h1 = size(I1, 1);
 w2 = size(I2, 2);   h2 = size(I2, 1);
 
@@ -50,9 +51,6 @@ for i=1:size(P1, 1)
         elseif strcmp(method, 'ncc')
             P_i_nonan = remove_border_nans(P_i);
             P_j_nonan = remove_border_nans(P_j);
-            if any(isnan(P_i_nonan(:))) || any(isnan(P_j_nonan(:)))
-                disp('wat');
-            end
             err = imgdiff_ncc(P_i_nonan, P_j_nonan);
         end
         %% START interactive

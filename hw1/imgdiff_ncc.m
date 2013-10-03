@@ -3,6 +3,7 @@ function [err, varargout] = imgdiff_ncc(I1, I2, varargin)
 %First estimates the 'best' alignment between I1 and I2 via intensity
 %differences, then returns the difference. This function will determine
 %which image to use as the 'template'.
+%TODO: Doesn't seem to work correctly yet.
 %Output
 %   err = imgdiff_ncc(I1, I2)
 %   [err, F] = imgdiff_ncc(I1, I2)
