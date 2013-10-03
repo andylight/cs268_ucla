@@ -100,10 +100,10 @@ for gi=1:length(comps)
     [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
     canvas = zeros([hcanvas wcanvas 3]);
     canvas_blend = nan([hcanvas wcanvas 3]);
+    mask = zeros([hcanvas wcanvas]);
     for i=1:length(G)
-        curcell = G{i};
-        imgid = curcell{1};
-        T = curcell{2};
+        imgid = G{i}{1};
+        T = G{i}{2};
         [theta, tx, ty] = get_rigid_params(T);
         I = imgs_color{imgid};
         if abs(theta) > 1e-1
@@ -113,13 +113,10 @@ for gi=1:length(comps)
             I = imwarp(I, affine2d(T_rot));
         end
         wI = size(I, 2); hI = size(I, 1);
-        i0 = ty - y_origin + 1; i1 = i0 + hI - 1;
-        j0 = tx - x_origin + 1; j1 = j0 + wI - 1;
-        i0 = int32(i0); i1 = int32(i1);
-        j0 = int32(j0); j1 = int32(j1);
+        i0 = int32(ty - y_origin + 1); i1 = int32(i0 + hI - 1);
+        j0 = int32(tx - x_origin + 1); j1 = int32(j0 + wI - 1);
         canvas = imgpaste(canvas, I, j0, i0);
         canvas_blend = imgpaste(canvas_blend, I, j0, i0, 'method', blend);
-
     end
     Istitch_all{gi} = canvas;
     Iblend_all{gi}  = canvas_blend;
