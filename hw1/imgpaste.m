@@ -1,22 +1,30 @@
-function Iout = imgpaste(I, patch, x, y, varargin)
+function [Iout, varargout] = imgpaste(I, patch, x, y, varargin)
 %IMGPASTE Pastes image PATCH onto image I at (X,Y) using various blending
 %schemes. (X,Y) refers to the upper-left corner of the destination.
+% Iout = imgpaste(I, patch, x, y, ...)
+%   Pastes the image PATCH onto I at location (x,y).
+% [Iout, pt_ul, pt_lr] = imgpaste(I, patch, x, y)
+%   pt_ul, pt_lr are the upper-left and lower-right coordinates of the
+% rectangle modified by imgpaste.
 M_OVERWRITE = 'overwrite';
 M_AVERAGE   = 'average';
 M_MEANSHIFT = 'meanshift';
+%% Argument Handling
 i_p = inputParser;
 i_p.addRequired('I', @isnumeric);
 i_p.addRequired('patch', @isnumeric);
 i_p.addRequired('x', @isnumeric);
 i_p.addRequired('y', @isnumeric);
 i_p.addParamValue('method', M_OVERWRITE, @ischar);
+i_p.addParamValue('mask', [], @isnumeric);
 i_p.parse(I, patch, x, y, varargin{:});
 I = i_p.Results.I;
 patch = i_p.Results.patch;
 x = i_p.Results.x;
 y = i_p.Results.y;
 method = i_p.Results.method;
-
+mask = i_p.Results.mask;
+%%
 xend = min([size(I, 2), x + size(patch, 2) - 1]);
 yend = min([size(I, 1), y + size(patch, 1) - 1]);
 
@@ -69,10 +77,12 @@ elseif strcmp(method, M_MEANSHIFT)
             patch_shift(patch_shift > 1) = 1;
             patch_shift(patch_shift < 0) = 0;
         end
-        Iout(y:yend, x:xend, :) = patch_shift;        
-        %Iout(ystart:yend, xstart:xend, :) = patch_shift((ystart-y+1):end, (xstart-x+1):end, :);
-        %mask = isnan(Iout(y:yend, x:xend, :));
-        
+        %Iout(y:yend, x:xend, :) = patch_shift;
+        % Don't paste pixels from patch_shift that are already present in
+        % Iout (thish can introduce image artifacts).
+        curmask = repmat(mask(y:yend, x:xend), [1 1 3]);
+        patch_masked = patch_shift .* curmask;
+        Iout(y:yend, x:xend, :) = Iout(y:yend, x:xend, :) + patch_masked;
     else
         Ioverlap = Iout(y:min([yend, firstnan_row(Iout, x, y)]), ...
                         x:min([xend, firstnan_col(Iout, x, y)]));
@@ -83,6 +93,10 @@ elseif strcmp(method, M_MEANSHIFT)
         end
         Iout(y:yend, x:xend) = patch_shift;
     end    
+end
+if nargout == 3
+    varargout{1} = [x, y];
+    varargout{2} = [xend, yend];
 end
 end
 

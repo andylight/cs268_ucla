@@ -99,8 +99,8 @@ for gi=1:length(comps)
     [x_origin, y_origin] = get_origin(G);
     [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
     canvas = zeros([hcanvas wcanvas 3]);
-    canvas_blend = nan([hcanvas wcanvas 3]);
-    mask = zeros([hcanvas wcanvas]);
+    canvas_blend = zeros([hcanvas wcanvas 3]);
+    mask = ones([hcanvas wcanvas]);
     for i=1:length(G)
         imgid = G{i}{1};
         T = G{i}{2};
@@ -116,7 +116,8 @@ for gi=1:length(comps)
         i0 = int32(ty - y_origin + 1); i1 = int32(i0 + hI - 1);
         j0 = int32(tx - x_origin + 1); j1 = int32(j0 + wI - 1);
         canvas = imgpaste(canvas, I, j0, i0);
-        canvas_blend = imgpaste(canvas_blend, I, j0, i0, 'method', blend);
+        [canvas_blend, pt_ul, pt_lr] = imgpaste(canvas_blend, I, j0, i0, 'method', blend, 'mask', mask);
+        mask(pt_ul(2):pt_lr(2), pt_ul(1):pt_lr(1)) = 0;        
     end
     Istitch_all{gi} = canvas;
     Iblend_all{gi}  = canvas_blend;
