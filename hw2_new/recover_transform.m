@@ -1,7 +1,7 @@
 function G = recover_transform(P1, P2)
 %RECOVER_TRANSFORM Computes transformation that aligns points in P2 to P1.
 % P1, P2 are Nx2 matrices.
-if size(P1, 1) < 4
+if size(P1, 1) < 1
     % Don't have enough points to estimate rigid transform. Do simple
     % translation estimate instead as a fallback.
     A = zeros([2*size(P2, 1), 3]);

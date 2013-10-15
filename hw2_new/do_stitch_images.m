@@ -38,7 +38,8 @@ i_p.addRequired('ptsdir', @ischar);
 i_p.addParamValue('T', 0.05, @isnumeric);
 i_p.addParamValue('method', 'ssd', @ischar);
 i_p.addParamValue('blend', 'overwrite', @ischar);
-i_p.addParamValue('show_stitches', true, @islogical);
+i_p.addParamValue('show_stitches', false, @islogical);
+i_p.addParamValue('usedisk', false, @islogical);    % If True, save/load graph to disk
 i_p.parse(imgsdir, ptsdir, varargin{:});
 imgsdir = i_p.Results.imgsdir;
 ptsdir = i_p.Results.ptsdir;
@@ -46,6 +47,7 @@ T = i_p.Results.T;
 method = i_p.Results.method;
 blend = i_p.Results.blend;
 show_stitches = i_p.Results.show_stitches;
+usedisk = i_p.Results.usedisk;
 
 %% Load images and data
 imgpaths = sort(getAllFiles(imgsdir));
@@ -60,7 +62,7 @@ end
 
 %% Compute point correspondences
 storedname = sprintf('graph_data_T_%.2f.mat', T);
-if exist(storedname, 'file') == 2
+if exist(storedname, 'file') == 2 && usedisk
     disp(sprintf('[Loading graph, matches from %s]', storedname));
     loadstruct = load(storedname);
     graph = loadstruct.graph;
@@ -71,7 +73,9 @@ else
     [graph, matches] = make_graph(imgs, pts, 'T', T, 'method', method);
     dur_makegraph = toc;
     disp(sprintf('Finished constructing graph (%.4fs)', dur_makegraph));
-    save(storedname, 'graph', 'matches', 'T');
+    if usedisk
+        save(storedname, 'graph', 'matches', 'T');
+    end
 end
 
 comps = connected_components(graph);
@@ -84,7 +88,10 @@ end
 G_all = {};
 for gi=1:length(comps)
     comp = comps{gi};
-    rootnode = comp{1};
+    sorted_nodes = sort(cell2mat(comp));
+    rootnode = sorted_nodes(1);
+    rootnode = 3;   % Hardcode that spirit1983.png is the rootnode. This
+                    % image is the first image of the sequence.
     history = containers.Map('KeyType', 'int32', 'ValueType', 'logical');
     tic;
     G = stitch_graph(rootnode, graph, matches, pts, history);
@@ -93,73 +100,9 @@ for gi=1:length(comps)
     disp(sprintf('Finished stitch_graph (%.4fs)', dur_stitchgraph));
 end
 
-for gi=1:length(comps)
-    G = G_all{gi};  % {{imgidx, G_i}, ...}
-    for i=1:length(G)
-        G_cur = G{i};
-        imgid = G_cur{1};
-        T = G_cur{2};
-        [theta, sc, tx, ty] = get_trans_params(T);
-        theta = rad2deg(theta);
-        disp(sprintf('For image %s, trans. parameters are:', imgpaths{imgid}));
-        disp(sprintf('    theta=%.4f scale=%.4f tx=%.4f ty=%.4f', theta, sc, tx, ty));
-        disp(T);    
-    end
-end
-
-%% Finally, compute image mosaic for each connected component
 Istitch_all = {}; Iblend_all = {};
 extents_all = {};   % extents_all{gi}{imgid} := coordinates of pasted image
                     % within reference frame of gi
-for gi=1:length(comps)
-    G = G_all{gi};
-    [x_origin, y_origin] = get_origin(G);
-    [wcanvas, hcanvas] = compute_canvas_size(imgs, G);
-    wcanvas = 4000; hcanvas = 4000; 
-    canvas = zeros([hcanvas wcanvas 3]);
-    canvas_blend = zeros([hcanvas wcanvas 3]);
-    mask = ones([hcanvas wcanvas]);
-    extents = {};
-    for i=1:length(G)
-        imgid = G{i}{1};
-        T = G{i}{2};
-        [theta, sc, tx, ty] = get_trans_params(T);
-        I = imgs_color{imgid};
-        T_rot_scale = [[T(1,1), T(1,2), 0];
-                       [T(2,1), T(2,2), 0];
-                       [0 0 1]];
-        T_trans = inv(T_rot_scale) * T;
-        x_offset = T_trans(1,3);
-        y_offset = T_trans(2,3);
-        % Apply rotation+scale, then translate
-        if abs(theta) > 1e-1    % Don't rotate if not necessary
-            I = imwarp(I, affine2d(T_rot_scale));
-        end
-        wI = size(I, 2); hI = size(I, 1);
-        %i0 = int32(ty - y_origin + 1); i1 = int32(i0 + hI - 1);
-        %j0 = int32(tx - x_origin + 1); j1 = int32(j0 + wI - 1);
-        x0 = int32(x_offset - x_origin + 1);
-        y0 = int32(y_offset - y_origin + 1);
-        if (x0 < 0) || (y0 < 0)
-            disp('hi');
-        end
-        canvas = imgpaste(canvas, I, x0, y0, 'method', 'overwrite');
-        [canvas_blend, pt_ul, pt_lr] = imgpaste(canvas_blend, I, x0, y0, 'method', blend, 'mask', mask);
-        mask(pt_ul(2):pt_lr(2), pt_ul(1):pt_lr(1)) = 0;
-        extents{i} = {pt_ul, pt_lr};
-    end
-    Istitch_all{gi} = canvas;
-    Iblend_all{gi}  = canvas_blend;
-    extents_all{gi} = extents;
-    if show_stitches
-        figure;
-        subplot(1, 2, 1); imshow(prepimage(canvas), []);
-        title('Raw Image stitch');
-        subplot(1, 2, 2); imshow(prepimage(canvas_blend), []);
-        title(sprintf('Blended Image Stitch (method=%s)', blend));
-        suptitle(sprintf('Image stitch for component=%d/%d\nimgids=%s', gi, length(comps), str_vec(comp)));
-    end
-end
 if nargout == 3
     varargout{1} = Iblend_all;
 end
@@ -167,59 +110,18 @@ if nargout == 4
     varargout{1} = Iblend_all;
     varargout{2} = extents_all;
 end
+if nargout == 5
+    varargout{1} = Iblend_all;
+    varargout{2} = extents_all;
+    varargout{3} = imgpaths;
+end
+if nargout == 6
+    varargout{1} = Iblend_all;
+    varargout{2} = extents_all;
+    varargout{3} = imgpaths;
+    varargout{4} = pts;
 end
 
-function [theta, sc, tx, ty] = get_trans_params(G)
-%GET_TRANS_PARAMS Returns the parameters of this transformation matrix.
-theta = atan(G(2,1)/G(1,1));
-sc = G(1,1) / cos(theta);
-
-G_rot_scale = [[G(1,1), G(1,2), 0];
-               [G(2,1), G(2,2), 0];
-               [0 0 1]];
-G_trans = inv(G_rot_scale) * G;
-tx = G_trans(1,3);
-ty = G_trans(2,3);
-end
-
-function [x0, y0] = get_origin(Gs)
-x0 = 0; y0 = 0;
-for i=1:length(Gs)
-    G = Gs{i};
-    G_mat = G{2};
-    [theta, sc, tx, ty] = get_trans_params(G_mat);
-    G_rot_scale = [[G_mat(1,1), G_mat(1,2), 0];
-                   [G_mat(2,1), G_mat(2,2), 0];
-                   [0 0 1]];
-    offset = G_rot_scale*[1 1 1]';
-    x0_off = offset(1) - 1;
-    y0_off = offset(2) - 1;
-    x0 = min(x0, abs(sc)*tx + x0_off);
-    y0 = min(y0, abs(sc)*ty + y0_off);
-end
-end
-
-function [w, h] = compute_canvas_size(imgs, G)
-%COMPUTE_CANVAS_SIZE Computes the total size spanned by the images in IMGS
-%after being transformed by G.
-x0 = 0; y0 = 0;
-x1 = 0; y1 = 0;
-for imgid=1:length(imgs)
-    img_i = imgs{imgid};
-    T_i = get_T(G, imgid);
-    if isnan(T_i)   % imgid is NOT within this component
-        continue;
-    end
-    wI = size(img_i, 2); hI = size(img_i, 1);
-    pt0 = T_i * [1 1 1]';   % Upperright corner after T
-    pt1 = T_i * [wI hI 1]'; % Lowerright corner after T
-    x0 = min([pt0(1), x0]);
-    y0 = min([pt0(2), y0]);
-    x1 = max([pt1(1), x1]);
-    y1 = max([pt1(2), y1]);
-end
-w = uint32(x1 - x0 + 1);
-h = uint32(y1 - y0 + 1);
 end
 
 function T = get_T(G, imgid)

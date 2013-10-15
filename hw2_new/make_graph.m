@@ -25,7 +25,6 @@ for i=1:length(imgs)
     for j=i+1:length(imgs)
         I_j = imgs{j};
         pts_j = pts{j};
-        %[M1, M2, F1, F2] = compute_matches(I_i, pts_i, I_j, pts_j, 'T', T, 'method', method);
         [M1, M2] = compute_corr_simple(pts_i, pts_j);
         F1 = 0; F2 = 0;
         nb_matches = sum(~isnan(M1));
