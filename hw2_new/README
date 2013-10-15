@@ -1,0 +1,31 @@
+CS 268 Fall 2013
+Students: Eric Kim
+
+To compute the transformations of each image w.r.t. spirit1983.png
+(the first image in the time sequence), run the matlab script:
+
+    >> out = hw2();
+
+This will estimate the SIMILARITY transformation between every image
+and spirit1983.png. You should get a result like:
+
+Computing point correspondences...
+Finished constructing graph (1.9850s)
+Finished stitch_graph (0.0095s)
+For image imgs\spirit1433.png, trans. params w.r.t. spirit1983.png are:
+    theta=-68.1681 scale=-0.7590 tx=59.0675 ty=-1130.6170
+   -0.2822   -0.7045  779.8810
+    0.7045   -0.2822  360.7269
+         0         0    1.0000
+
+For image imgs\spirit1706.png, trans. params w.r.t. spirit1983.png are:
+    theta=52.9643 scale=0.8481 tx=-0.5567 ty=-295.9899
+    0.5108   -0.6770  200.1073
+    0.6770    0.5108 -151.5787
+         0         0    1.0000
+
+For image imgs\spirit1983.png, trans. params w.r.t. spirit1983.png are:
+    theta=0.0000 scale=1.0000 tx=0.0000 ty=0.0000
+     1     0     0
+     0     1     0
+     0     0     1
