@@ -1,0 +1,29 @@
+CS 268 Fall 2013
+Students: Eric Kim
+
+So, if what I'm understanding is correct, the approach in my mind is: we want to compute the World coordinates {P_1, P_2, P_3} of the shuttle location at each time {t_1, t_2, t_3}. Each P_i = [X_i, Y_i, Z_i], i.e. the 3D coordinates of the shuttle at time t_i.
+
+Once we have {P_1, P_2, P_3}, we can compute the velocity vector as (only considering one pair of points):
+
+    v = (P_2 - P_1) / (t_2 - t_1)
+
+And check if the magnitude of v is less than or equal to 80 m/s:
+    || v || <= 80 m/s
+
+My thoughts are: how do we compute the shuttle positions P_1? Well, I believe we have one start point: let's take the world origin to be on the surface of Mars, such that x=0,y=0 is the (x,y) coordinates of the shuttle at t=1.
+
+From this, P_1 = (0, 0, 1983)     [the shuttle's altitude is 1983 meters, as written in the spec]
+
+To compute P_2, we need to know the motion that the shuttle underwent from t_1 -> t_2. This is equivalent to finding the relative motion g_2=(R,T) of the 'cameras' C_1, C_2. So:
+
+    P_2 = inv(g_2) * [0 0 1983 1]
+
+(Similarly for P_3)
+
+How to compute g_i=(R,T) for each pair of consecutive time shots? A fairly general method is to apply the eight-point algorithm (or any of its variants, all the way down to a four-point algorithm) to estimate the Essential matrix E. From E, we can decompose it into an (R,T), which describes the relative camera motion between the two views.
+
+But maybe that's overkill for this scenario. Alternately, let's assume that the scene is planar, which is a reasonable assumption for these images. Then, we can use a specialized algorithm for the planar case (our textbook MaSKS, page 131: "Planar scenes and homography") to recover g=(R,T). 
+
+[Also, the eight-point algorithm doesn't work if the input corresponding points all lie on a plane.]
+
+Am I making a big mistake somewhere above? 
