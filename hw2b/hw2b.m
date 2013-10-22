@@ -19,7 +19,8 @@ K = [[focal/mx 0 u0];
 Kinv = inv(K);
 
 [imgpaths, imgs, ptspaths, pts] = load_data();
-    
+
+%% Estimate point correspondences using HW2 part 1
 % G_21 := 3x3 affine matrix mapping spirit1983.png -> spirit1706.png
 % G_32 := 3x3 affine matrix mapping spirit1706.png -> spirit1433.png
 % PtMats := {pts_12, pts_23}, where each pts_ij is a cell array:
@@ -27,6 +28,7 @@ Kinv = inv(K);
 %           such that each point k in pts_i,pts_j correspond.
 [G_21, G_32, PtMats] = hw2b_getTs('K', K);
 if SHOW_CORRS
+    % Display putative point correspondences
     [~,~,PtMats_uncalib] = hw2b_getTs();
     figure;
     idx1983 = indexof(imgpaths, 'spirit1983');

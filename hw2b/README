@@ -1,29 +1,85 @@
 CS 268 Fall 2013
+Homework 2 Part 2
+Due: 10/22/2013
 Students: Eric Kim
 
-So, if what I'm understanding is correct, the approach in my mind is: we want to compute the World coordinates {P_1, P_2, P_3} of the shuttle location at each time {t_1, t_2, t_3}. Each P_i = [X_i, Y_i, Z_i], i.e. the 3D coordinates of the shuttle at time t_i.
+==== Answers to Questions ====
 
-Once we have {P_1, P_2, P_3}, we can compute the velocity vector as (only considering one pair of points):
+1. Yes, if you assume certain conditions.
 
-    v = (P_2 - P_1) / (t_2 - t_1)
+2. Let's assume that the scene is planar. This is a reasonable
+   assumption, since the terrain of the Mars at the image locations
+   is reasonably flat.
 
-And check if the magnitude of v is less than or equal to 80 m/s:
-    || v || <= 80 m/s
+3. Yes: at time of spirit1433.png (the last image of the sequence),
+   I estimated that the velocity magnitude is ~73.81 m/s, which is
+   less than the 80m/s rating.
+   So, no need to fire the horizontal rockets.
 
-My thoughts are: how do we compute the shuttle positions P_1? Well, I believe we have one start point: let's take the world origin to be on the surface of Mars, such that x=0,y=0 is the (x,y) coordinates of the shuttle at t=1.
+==== Instructions ====
 
-From this, P_1 = (0, 0, 1983)     [the shuttle's altitude is 1983 meters, as written in the spec]
+From the MATLAB interactive prompt, invoke the hw2b.m function. Your
+output should look like:
 
-To compute P_2, we need to know the motion that the shuttle underwent from t_1 -> t_2. This is equivalent to finding the relative motion g_2=(R,T) of the 'cameras' C_1, C_2. So:
+    >>> hw2b();
+    Computing point correspondences...
+    Finished constructing graph (1.9122s)
+    Finished stitch_graph (0.0177s)
+    == AvgProjError for spirit1983->spirit1706 w/ est. H_1: 0.000115
+    == AvgProjError for spirit1983->spirit1706 w/ est. H_2: 0.000790
+    == AvgProjError for spirit1706->spirit1433 w/ est. H_1: 0.000000
+    == AvgProjError for spirit1706->spirit1433 w/ est. H_2: 0.000000
+    ==== spirit1983 -> spirit1706 ====
+        motion_1: 3.672244 -51.060832 -277.000000
+        velocity_1: 75.117541
+        motion_2: 25.442394 -91.321106 -277.000000
+        velocity_2: 78.072723
+    ==== spirit1706 -> spirit1433 ====
+        motion_1: -25.079375 38.178371 -273.000000
+        velocity_1: 73.812044
+        motion_2: -53.877693 84.062741 -273.000000
+        velocity_2: 77.516266
+    ==== Final Results ====
+    spirit1983->spirit1706: 75.117541 m/s
+    spirit1706->spirit1433: 73.812044 m/s
+    Do not need to fire the horiz. rockets, our velocity 73.812044 is less than the limit 80m/s
+   
+==== Approach ====
 
-    P_2 = inv(g_2) * [0 0 1983 1]
+At a high level: we wish to estimate the camera motion g=(R,T) from 
+one image to the next. If we can estimate this g=(R,T) (say, from
+spirit1983 to spirit1706), then T can tell us the displacement (in 
+meters) between the two images: T_meters.
 
-(Similarly for P_3)
+[For the following, let's focus on the two images spirit1983 and
+spirit1706. The same approach can be applied to spirit1706, spirit1433.]
 
-How to compute g_i=(R,T) for each pair of consecutive time shots? A fairly general method is to apply the eight-point algorithm (or any of its variants, all the way down to a four-point algorithm) to estimate the Essential matrix E. From E, we can decompose it into an (R,T), which describes the relative camera motion between the two views.
+From T_meters, we can compute the velocity. For instance, from 
+spirit1983 to spirit1706, the delt_time=3.75 s:
+    velocity_vector = T_meters / 3.75s
+    velocity = || velocity_vector ||_2    # the L2 norm
 
-But maybe that's overkill for this scenario. Alternately, let's assume that the scene is planar, which is a reasonable assumption for these images. Then, we can use a specialized algorithm for the planar case (our textbook MaSKS, page 131: "Planar scenes and homography") to recover g=(R,T). 
+To estimate g=(R,T) from just the point correspondences between the
+two images, let's assume the scene is planar. This is a reasonable
+assumption, as the terrain of Mars in these images appear to be
+reasonably flat. With this assumption, the geometry works out that we
+can compute the relative motion of the cameras g=(R,T) given JUST the
+homography H that maps pixel coordinates in spirit1983 to pixel 
+coordinates in spirit1706. 
 
-[Also, the eight-point algorithm doesn't work if the input corresponding points all lie on a plane.]
+The algorithm that decomposes the homography H into a g=(R,T) is
+the 'four-point algorithm' in the MaSKS textbook (Algorithm 5.2).
 
-Am I making a big mistake somewhere above? 
+To convert the computed T into T_meters, we exploit the fact that we
+know the Z displacement between spirit1983 and spirit1706: -277 meters:
+
+    T_meters = T / (T(3) / -277)
+
+Finally, the approach can be summarized as:
+
+0. Calibrate the pixel coordinates A using the camera calibration matrix
+   to get calibrated coordinates A'
+1. Compute the point correspondences from img1 to img2 [HW2 Part 1]
+2. Apply the "Four Point Algorithm" (Algorithm 5.2, MaSKS) to estimate
+   the homography H, and the g=(R,T)
+3. Compute the velocity.
