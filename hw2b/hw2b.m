@@ -5,37 +5,20 @@ function hw2b()
 %   spirit1706.png := 2
 %   spirit1433.png := 3
 
-%halp();
-DO_MASKS = false;
-SHOW_CORRS = true;
+SHOW_CORRS = false;
 
+%% Calibrate coordinates with camera calibration matrix K
 focal = 14.67 * 1e-3;       % 14.67 mm
 mx = sqrt(12) * 1e-6;       % sqrt(12) micrometers per pixel
-%mx = 11.87 * 1e-6;
 my = mx;
 u0 = 843 / 2;
 v0 = 843 / 2;
-%u0 = 1024 / 2;
-%v0 = 1024 / 2;
 K = [[focal/mx 0 u0];
      [0 focal/my v0];
      [0 0 1]];
 Kinv = inv(K);
 
 [imgpaths, imgs, ptspaths, pts] = load_data();
-
-newpts = cell([1, length(pts)]);
-for i=1:length(pts)
-    A = pts{i};
-    Acalib = zeros(size(A));
-    for idx=1:size(A, 1)
-        curpt = [A(idx,:) 1];
-        pt_calibrated = Kinv*curpt';
-        Acalib(idx, :) = pt_calibrated(1:2)';
-    end
-    newpts{i} = Acalib;
-end
-pts = newpts;
     
 % G_21 := 3x3 affine matrix mapping spirit1983.png -> spirit1706.png
 % G_32 := 3x3 affine matrix mapping spirit1706.png -> spirit1433.png
@@ -58,113 +41,106 @@ if SHOW_CORRS
     legend('imgs2', 'imgs3');
 end
 
-if DO_MASKS
-    disp('==== Doing MaSKS homography2Motion ====');
-    p1 = pts2maskspts(PtMats{1}{1}); % 3xN, spirit1983
-    p2 = pts2maskspts(PtMats{1}{2}); %      spirit1706
-    [Sols2, H2] = homography2Motion(p1,p2);
-    
-    p3 = pts2maskspts(PtMats{2}{1}); %      spirit1706
-    p4 = pts2maskspts(PtMats{2}{2}); %      spirit1433
-    [Sols3, H3] = homography2Motion(p3,p4);
-    disp('Done computing homographies.');
-    sols2 = filtersols(Sols2);
-    sols3 = filtersols(Sols3);
-else
-    p1 = pts2maskspts(PtMats{1}{1}); % 3xN, spirit1983
-    p2 = pts2maskspts(PtMats{1}{2}); %      spirit1706   
-    p3 = pts2maskspts(PtMats{2}{1}); %      spirit1706
-    p4 = pts2maskspts(PtMats{2}{2}); %      spirit1433
-    G_21 = compute_H_special(p1, p2);
-    G_32 = compute_H_special(p3,p4);
-    
-    H2_norm = fix_sign(normalize_H(G_21), PtMats{1}{1}(1,:), PtMats{1}{2}(1,:));
-    H3_norm = fix_sign(normalize_H(G_32), PtMats{2}{1}(1,:), PtMats{2}{2}(1,:));
-    sols2 = decompose_H(H2_norm);
-    sols3 = decompose_H(H3_norm);
+%% Estimate H from the computed point corresondences PtMats
+p1 = pts2maskspts(PtMats{1}{1}); % 3xN, spirit1983
+p2 = pts2maskspts(PtMats{1}{2}); %      spirit1706   
+p3 = pts2maskspts(PtMats{2}{1}); %      spirit1706
+p4 = pts2maskspts(PtMats{2}{2}); %      spirit1433
+G_21 = compute_H_special(p1, p2);   % Don't use hw2 part1 similarity transform.
+G_32 = compute_H_special(p3,p4);    % Instead, just use the computed homography
+
+H2_norm = fix_sign(normalize_H(G_21), PtMats{1}{1}(1,:), PtMats{1}{2}(1,:));
+H3_norm = fix_sign(normalize_H(G_32), PtMats{2}{1}(1,:), PtMats{2}{2}(1,:));
+sols2 = decompose_H(H2_norm);
+sols3 = decompose_H(H3_norm);
+
+% Sanity check that the computed homographies actually map points from
+% image1 to image2.
+
+%% spirit1983 -> spirit1706
+for i=1:length(sols2)
+    R = sols2{i}{1};    N = sols2{i}{2};    T  = sols2{i}{3};
+    H = (R + T*N');
+    H = H / H(3,3);
+    err_tot = 0.0;
+    pts1 = PtMats{1}{1};    % Nx2 points from spirit1983
+    pts2 = PtMats{1}{2};    % Nx2 points from spirit1706
+    for idx=1:size(pts1,1)
+        pt1 = pts1(i,:);
+        pt2 = pts2(i,:);
+        pt1_trans = H * [pt1 1]';
+        pt1_trans = pt1_trans / pt1_trans(3);
+        err = norm(pt1_trans(1:2)' - pt2, 2);
+        err_tot = err_tot + err;
+    end
+    err_avg = err_tot / size(pts1,1);
+    disp(sprintf('== AvgProjError for spirit1983->spirit1706 w/ est. H_%d: %f', i, err_tot));
 end
+% spirit1706 -> spirit1433
+for i=1:length(sols3)
+    R = sols3{i}{1};    N = sols3{i}{2};    T  = sols3{i}{3};
+    H = (R + T*N');
+    H = H / H(3,3);
+    err_tot = 0.0;
+    pts1 = PtMats{2}{1};    % Nx2 points from spirit1983
+    pts2 = PtMats{2}{2};    % Nx2 points from spirit1706
+    for idx=1:size(pts1,1)
+        pt1 = pts1(i,:);
+        pt2 = pts2(i,:);
+        pt1_trans = H * [pt1 1]';
+        pt1_trans = pt1_trans / pt1_trans(3);
+        err = norm(pt1_trans(1:2)' - pt2, 2);
+        err_tot = err_tot + err;
+    end
+    err_avg = err_tot / size(pts1,1);
+    disp(sprintf('== AvgProjError for spirit1706->spirit1433 w/ est. H_%d: %f', i, err_tot));
+end
+%% END sanity check
+
+motion1_sol = nan; v1_sol = inf;
+motion2_sol = nan; v2_sol = inf;
+
 disp('==== spirit1983 -> spirit1706 ====');
 for i=1:length(sols2)
     sol = sols2{i};
     R = sol{1};     N = sol{2};     T = sol{3};
     H = (R + T*N');
     H = H / H(3,3);
-    pt1 = H*[PtMats{1}{1}(1,:) 1]';
-    pt1 = pt1 / pt1(3);
-    pt1 = pt1(1:2)';
-    pt2 = PtMats{1}{2}(1,:);
-    err = norm(pt1-pt2, 2);
-    disp(sprintf('err: %f', err));
     T_norm = T / norm(T,2);
-    %[~, Rvert] = align_vector([0 0 -1], N', true);
-    %Tworld = Rvert * T_norm;
-    %motion_2 = Tworld / (Tworld(3)/-277);
-    %myZ = R*[0 0 -1]';
-    %[myZ_align, ~] = align_vector(myZ', N');
-    %[Tworld, ~] = align_vector(T_norm', myZ_align');
-    %Tworld = Rvert * T_norm;
-    %motion_2 = Tworld / (Tworld(3)/-277);
     motion_2 = T_norm / (T_norm(3)/-277);
     v_2 = norm(motion_2 / 3.75, 2);
-    disp(sprintf('    motion: %f %f %f', motion_2));
-    disp(sprintf('    velocity: %f', v_2));
-    % Plot plane
-    %[xx,yy] = ndgrid(-10:10, -10:10);
-    %z = (-N(1)*xx - N(2)*yy) / N(3);
-    %figure;
-    %surf(xx,yy,z); hold on;
-    %draw_frame_scaled([R T; 0 0 0 1], 4); hold on;
+    disp(sprintf('    motion_%d: %f %f %f', i, motion_2));
+    disp(sprintf('    velocity_%d: %f', i, v_2));
+    if v_2 <= v1_sol
+        motion1_sol = motion_2;
+        v1_sol = v_2;
+    end
 end
 disp('==== spirit1706 -> spirit1433 ====');
 for i=1:length(sols3)
     sol = sols3{i};
     R = sol{1};     N = sol{2};     T = sol{3};
-    H = (R + T*N');
-    pt1 = H*[PtMats{2}{1}(1,:) 1]';
-    pt1 = pt1 / pt1(3);
-    pt1 = pt1(1:2)';
-    pt2 = PtMats{2}{2}(1,:);
-    err = norm(pt1-pt2, 2);
-    disp(sprintf('err: %f', err));    
+    H = (R + T*N'); 
     T_norm = T / norm(T,2);
     motion_2 = T_norm / (T_norm(3)/-273);
     v_2 = norm(motion_2 / 3.75, 2);
-    disp(sprintf('    motion: %f %f %f', motion_2));
-    disp(sprintf('    velocity: %f', v_2));
-    % Plot plane
-    %[xx,yy] = ndgrid(-10:10, -10:10);
-    %z = (-N(1)*xx - N(2)*yy) / N(3);
-    %figure;
-    %surf(xx,yy,z); hold on;
-    %draw_frame_scaled([R T; 0 0 0 1], 4); hold on;
+    disp(sprintf('    motion_%d: %f %f %f', i, motion_2));
+    disp(sprintf('    velocity_%d: %f', i, v_2));
+    if v_2 <= v2_sol
+        motion2_sol = motion_2;
+        v2_sol = v_2;
+    end
 end
 
-T_2 = sols2{1}{3};
-T_3 = sols3{1}{3};
+disp('==== Final Results ====');
+disp(sprintf('spirit1983->spirit1706: %f m/s', v1_sol));
+disp(sprintf('spirit1706->spirit1433: %f m/s', v2_sol));
 
-%%%%%%%% secs      meters
-data = {{-25        1983},
-        {-21.25     1706},
-        {-17.5      1433}};
-
-C_1 = [0 0 1983];
-C_2 = C_1 + (T_2 / (T_2(3)/-277))';
-C_3 = C_2 + (T_3 / (T_3(3)/-273))';
-
-disp(sprintf('C_2 is: %s', str_vec(C_2)));
-disp('    Last entry should be: 1706 meters');
-disp(sprintf('C_3 is: %s', str_vec(C_3)));
-disp('    Last entry should be: 1433 meters');
-
-v_12 = (C_2 - C_1) / (data{2}{1} - data{1}{1});
-v_23 = (C_3 - C_2) / (data{3}{1} - data{2}{1});
-
-v_1 = norm(v_12, 2);
-v_2 = norm(v_23, 2);
-
-disp(sprintf('v_1 := %.4f m/s v_2 := %.4f m/s', v_1, v_2));
-disp(sprintf('    v_avg: %.4f m/s', (v_1+v_2)/2));
-
+if v2_sol >= 80
+    disp(sprintf('Fire the horiz. rockets, our velocity %f exceeds the limit 80m/s', v2_sol));
+else
+    disp(sprintf('Do not need to fire the horiz. rockets, our velocity %f is less than the limit 80m/s', v2_sol));
+end
 end
 
 function H_norm = normalize_H(H)
@@ -222,9 +198,6 @@ for i=1:length(possible_sols)
         sols{length(sols)+1} = {R, N, T};
         solidxs{length(solidxs)+1} = i;
     end
-end
-if length(sols) > 1
-    %disp(sprintf('Found %d feasible solutions', length(sols)));
 end
 end
 
