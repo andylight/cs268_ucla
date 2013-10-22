@@ -57,8 +57,10 @@ function [pts, idxs1, idxs2] = randselect(P, Q, N)
 N_min = min(N, size(P, 1));     % Don't over-choose points
 idxs1 = randperm(size(P, 1));
 idxs2 = randperm(size(Q, 1));
-idxs1 = sort(idxs1(1:N_min));
-idxs2 = sort(idxs2(1:N_min));
+idxs1 = idxs1(1:N_min);
+idxs2 = idxs2(1:N_min);
+%idxs1 = sort(idxs1(1:N_min));
+%idxs2 = sort(idxs2(1:N_min));
 pts = {P(idxs1, :), Q(idxs2, :)};
 end
 
