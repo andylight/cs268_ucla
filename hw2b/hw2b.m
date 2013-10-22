@@ -7,6 +7,10 @@ function hw2b()
 
 SHOW_CORRS = false;
 
+if exist('getAllFiles') == 0
+    addpath_ek();   % Add functions from: ek_util
+end
+
 %% Calibrate coordinates with camera calibration matrix K
 focal = 14.67 * 1e-3;       % 14.67 mm
 mx = sqrt(12) * 1e-6;       % sqrt(12) micrometers per pixel
