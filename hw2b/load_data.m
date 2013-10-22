@@ -1,7 +1,7 @@
 function [imgpaths, imgs, ptspaths, pts] = load_data()
 %LOAD_DATA Load data.
 imgsdir = 'imgs';
-ptsdir = 'pts';
+ptsdir = 'pts_2';
 
 imgpaths = sort(getAllFiles(imgsdir));
 imgs = cell([1, length(imgpaths)]);

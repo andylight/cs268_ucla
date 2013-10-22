@@ -1,4 +1,4 @@
-function [G_21, G_32, PtMats] = hw2b_getTs()
+function [G_21, G_32, PtMats] = hw2b_getTs(varargin)
 %HW2B_GETTS Compute the (affine) transformations mapping image
 %spirit1983.png to spirit1706.png, and the map between spirit1706.png to
 %spirit1433.png.
@@ -11,10 +11,14 @@ function [G_21, G_32, PtMats] = hw2b_getTs()
 %   spirit1983.png := 1
 %   spirit1706.png := 2
 %   spirit1433.png := 3
+i_p = inputParser;
+i_p.addParamValue('K', nan, @isnumeric);
+i_p.parse(varargin{:});
+K = i_p.Results.K;
 imgsdir = 'imgs';
-ptsdir  = 'pts';
+ptsdir  = 'pts_2';
 
-[~, G_all, ~, ~, imgpaths, pts, matches] = do_stitch_images(imgsdir, ptsdir, 'rootimgpath', 'imgs/spirit1983.png');
+[~, G_all, ~, ~, imgpaths, pts, matches] = do_stitch_images(imgsdir, ptsdir, 'rootimgpath', 'imgs/spirit1983.png', 'K', K);
 G       = G_all{1};             % Holds the transformation matrices that
                                 % transform all images to a common ref.
                                 % frame: spirit1983.png
@@ -56,9 +60,9 @@ for i=1:length(foo)
     T = foo{i};
     [theta, sc, tx, ty] = get_trans_params(T);
     theta = rad2deg(theta);
-    disp(sprintf('For image %d, trans. params w.r.t. %d are:', i, i+1));
-    disp(sprintf('    theta=%.4f scale=%.4f tx=%.4f ty=%.4f', theta, sc, tx, ty));
-    disp(T);
+    %disp(sprintf('For image %d, trans. params w.r.t. %d are:', i, i+1));
+    %disp(sprintf('    theta=%.4f scale=%.4f tx=%.4f ty=%.4f', theta, sc, tx, ty));
+    %disp(T);
 end    
 end
 

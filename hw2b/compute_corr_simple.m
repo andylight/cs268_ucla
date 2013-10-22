@@ -12,7 +12,7 @@ function [M1, M2, varargout] = compute_corr_simple(P, Q, varargin)
 %             = NaN if Q(i) does not correspond with P(j)
 %   [M1, M2, T] = compute_correspondences(P, Q)
 %       T is the computed transformation that maps Q to P.
-N = 4;    % Min. number of data required to fit model
+N = 5;    % Min. number of data required to fit model
 K = 10000; % Number of iterations
 best_model = 0;
 best_error = inf;
@@ -57,8 +57,10 @@ function [pts, idxs1, idxs2] = randselect(P, Q, N)
 N_min = min(N, size(P, 1));     % Don't over-choose points
 idxs1 = randperm(size(P, 1));
 idxs2 = randperm(size(Q, 1));
-idxs1 = sort(idxs1(1:N_min));
-idxs2 = sort(idxs2(1:N_min));
+idxs1 = idxs1(1:N_min);
+idxs2 = idxs2(1:N_min);
+%idxs1 = sort(idxs1(1:N_min));
+%idxs2 = sort(idxs2(1:N_min));
 pts = {P(idxs1, :), Q(idxs2, :)};
 end
 

@@ -35,6 +35,7 @@ function [Istitch_all, G_all, varargout] = do_stitch_images(imgsdir, ptsdir, var
 i_p = inputParser;
 i_p.addRequired('imgsdir', @ischar);
 i_p.addRequired('ptsdir', @ischar);
+i_p.addParamValue('K', nan, @isnumeric);    % Camera calibration matrix
 i_p.addParamValue('rootimgpath', -1);        % Path of image to compute transformations to
 i_p.addParamValue('T', 0.05, @isnumeric);
 i_p.addParamValue('method', 'ssd', @ischar);
@@ -44,6 +45,7 @@ i_p.addParamValue('usedisk', false, @islogical);    % If True, save/load graph t
 i_p.parse(imgsdir, ptsdir, varargin{:});
 imgsdir = i_p.Results.imgsdir;
 ptsdir = i_p.Results.ptsdir;
+K = i_p.Results.K;
 rootimgpath = i_p.Results.rootimgpath;
 T = i_p.Results.T;
 method = i_p.Results.method;
@@ -76,6 +78,23 @@ end
 if root_imgid == -1
     disp(sprintf('ERROR: Could not find rootimgpath %s', rootimgpath));
     return;
+end
+
+
+if ~isnan(K)
+    Kinv = inv(K);
+    newpts = cell([1, length(pts)]);
+    for i=1:length(pts)
+        A = pts{i};
+        Acalib = zeros(size(A));
+        for idx=1:size(A, 1)
+            curpt = [A(idx,:) 1];
+            pt_calibrated = Kinv*curpt';
+            Acalib(idx, :) = pt_calibrated(1:2)';
+        end
+        newpts{i} = Acalib;
+    end
+    pts = newpts;
 end
 
 %% Compute point correspondences
