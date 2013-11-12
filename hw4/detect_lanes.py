@@ -1,6 +1,8 @@
 import sys, os, time, pdb, argparse
 import numpy as np, cv2
 
+import util
+
 from estimate_line import estimate_line
 from util import intrnd
 
@@ -53,13 +55,68 @@ def detect_lanes(I, win1=(0.2, 0.1, 0.4, 0.55), win2=(0.2, 0.1, 0.6, 0.55),
     edges_right = edgemap[(y_right-(h_right/2)):(y_right+(h_right/2)),
                           (x_right-(w_right/2)):(x_right+(w_right/2))]
 
-    cv2.imwrite('edge_left.png', edges_left)
-    cv2.imwrite('edge_right.png', edges_right)
-
     # Find dominant line in each window
     line1, inliers1 = estimate_line(edges_left)
     line2, inliers2 = estimate_line(edges_right)
-    return line1, line2
+    if line1[1] != 0:
+        line1_norm = np.array([line1[0] / line1[1], 1, line1[2] / line1[1]])
+    else:
+        line1_norm = line1
+    if line2[1] != 0:
+        line2_norm = np.array([line2[0] / line2[1], 1, line2[2] / line2[1]])
+    else:
+        line2_norm = line2
+    # Fix line to be in image coordinate system (not window coord sys)
+    a1, b1, c1 = line1_norm
+    c1_out = -a1*(x_left-(w_left/2)) - b1*((h-1-y_left)-(h_left/2)) + c1
+    
+    a2, b2, c2 = line2_norm
+    c2_out = -a2*(x_right-(w_right/2)) - b2*((h-1-y_right)-(h_right/2)) + c2
+    return np.array([a1, b1, c1_out]), np.array([a2, b2, c2_out])
+
+def plot_lines(I, line1, line2):
+    """ Plots lines on the input image.
+    Input:
+        nparray I
+        tuple line1, line2: (float a, float b, float c)
+    Output:
+        nparray Iout
+    """
+    Irgb = util.to_rgb(I)
+    if line1 != None:
+        Irgb = overlay_line(Irgb, line1, colour=(255, 0, 0))
+    if line2 != None:
+        Irgb = overlay_line(Irgb, line2, colour=(0, 255, 0))
+    return Irgb
+    
+def overlay_line(I, line, colour=(255, 0, 0), thick=2):
+    """ Adds a colored line to the input image.
+    Input:
+        nparray I: 
+            If I is not RGB, this will convert it.
+        tuple line: (float a, float b, float c)
+        tuple clr: (int R, int G, int B)
+    Output:
+        nparray I_rgb
+    """
+    a, b, c = line # ax + by + c = 0 => y = (-ax - c) / b
+    Irgb = util.to_rgb(I)
+    h, w = Irgb.shape[0:2]
+    for x in xrange(w):
+        y = (-a*x - c) / b
+        y = (h-1) - y # Remember: lines are in 'normal' coord system,
+                      # not image coord system (where origin is UL-corner)
+        if y < 0:
+            continue
+        y_low = max(0, y - thick)
+        y_high = min(h-1, y + thick)
+        x_low = max(0, x - thick)
+        x_high = min(w-1, x + thick)
+        Irgb[y_low:y_high, x_low:x_high, 0] = colour[0]
+        Irgb[y_low:y_high, x_low:x_high, 1] = colour[1]
+        Irgb[y_low:y_high, x_low:x_high, 2] = colour[2]
+
+    return Irgb
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -95,12 +152,14 @@ def main():
             continue
         if line1 == None:
             print("    Error: Couldn't find left lane")
-            continue
         if line2 == None:
             print("    Error: Couldn't find right lane.")
-            continue
-        print("Found both lanes!")
+        Irgb = plot_lines(I, line1, line2)
+        cv2.imwrite('{0}_lines.png'.format(get_filename(imgpath)), Irgb)
     print("Done.")
+
+def get_filename(fpath):
+    return os.path.splitext(os.path.split(fpath)[1])[0]
 
 if __name__ == '__main__':
     main()
