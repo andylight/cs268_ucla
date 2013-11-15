@@ -33,3 +33,6 @@ def get_imgpaths(imgsdir, n=None):
                 return imgpaths
             imgpaths.append(os.path.join(dirpath, f))
     return imgpaths
+
+def get_filename(fpath):
+    return os.path.splitext(os.path.split(fpath)[1])[0]
