@@ -166,10 +166,10 @@ def parse_args():
     parser.add_argument("--win1", nargs=4, type=float, metavar=("X", "Y", "W", "H"),
                         help="Left subwindow (X, Y, WIDTH, HEIGHT). Each \
 value is in range [0.0,1.0]",
-                        default=(0.4, 0.55, 0.2, 0.1))
+                        default=(0.4, 0.60, 0.2, 0.25))
     parser.add_argument("--win2", nargs=4, type=float, metavar=("X", "Y", "W", "H"),
                         help="Right subwindow. (See --win1)",
-                        default=(0.6, 0.55, 0.2, 0.1))
+                        default=(0.62, 0.60, 0.2, 0.25))
     parser.add_argument("--n", type=int, help="Number of images to process.")
     return parser.parse_args()
 
