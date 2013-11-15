@@ -58,21 +58,28 @@ def detect_lanes(I, win1=(0.2, 0.1, 0.4, 0.55), win2=(0.2, 0.1, 0.6, 0.55),
     # Find dominant line in each window
     line1, inliers1 = estimate_line(edges_left)
     line2, inliers2 = estimate_line(edges_right)
-    if line1[1] != 0:
+    if line1 != None and line1[1] != 0:
         line1_norm = np.array([line1[0] / line1[1], 1, line1[2] / line1[1]])
     else:
         line1_norm = line1
-    if line2[1] != 0:
+    if line2 != None and line2[1] != 0:
         line2_norm = np.array([line2[0] / line2[1], 1, line2[2] / line2[1]])
     else:
         line2_norm = line2
     # Fix line to be in image coordinate system (not window coord sys)
-    a1, b1, c1 = line1_norm
-    c1_out = -a1*(x_left-(w_left/2)) - b1*((h-1-y_left)-(h_left/2)) + c1
-    
-    a2, b2, c2 = line2_norm
-    c2_out = -a2*(x_right-(w_right/2)) - b2*((h-1-y_right)-(h_right/2)) + c2
-    return np.array([a1, b1, c1_out]), np.array([a2, b2, c2_out])
+    if line1_norm != None:
+        a1, b1, c1 = line1_norm
+        c1_out = -a1*(x_left-(w_left/2)) - b1*((h-1-y_left)-(h_left/2)) + c1
+        line1_out = np.array([a1, b1, c1_out])
+    else:
+        line1_out = None
+    if line2_norm != None:
+        a2, b2, c2 = line2_norm
+        c2_out = -a2*(x_right-(w_right/2)) - b2*((h-1-y_right)-(h_right/2)) + c2
+        line2_out = np.array([a2, b2, c2_out])
+    else:
+        line2_out = None
+    return line1_out, line2_out
 
 def plot_lines(I, line1, line2):
     """ Plots lines on the input image.
@@ -125,11 +132,8 @@ def parse_args():
                         default=100)
     parser.add_argument("--ksize", type=int, help="Size of Sobel filter (Canny).",
                         default=3)
+    parser.add_argument("--n", type=int, help="Number of images to process.")
     return parser.parse_args()
-
-def isimgext(path):
-    p = path.lower()
-    return p.endswith('.png') or p.endswith('.jpeg') or p.endswith('.jpg')
 
 def main():
     args = parse_args()
@@ -139,10 +143,7 @@ def main():
     if not os.path.isdir(imgsdir):
         imgpaths = [imgsdir]
     else:
-        imgpaths = []
-        for dirpath, dirnames, filenames in os.walk(imgsdir):
-            for f in [f for f in filenames if isimgext(f)]:
-                imgpaths.append(os.path.join(dirpath, f))
+        imgpaths = util.get_imgpaths(imgsdir, n=args.n)
     for i, imgpath in enumerate(imgpaths):
         print("({0}/{1}): Image={2}".format(i+1, len(imgpaths), imgpath))
         I = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_GRAYSCALE)

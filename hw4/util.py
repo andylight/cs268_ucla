@@ -1,6 +1,7 @@
 """
 A few utility functions.
 """
+import os
 import numpy as np
 
 def to_rgb(I, do_cpy=True):
@@ -18,3 +19,17 @@ def to_rgb(I, do_cpy=True):
 
 def intrnd(x):
     return int(round(x))
+
+def isimgext(path):
+    p = path.lower()
+    return p.endswith('.png') or p.endswith('.jpeg') or p.endswith('.jpg')
+
+def get_imgpaths(imgsdir, n=None):
+    """ Outputs all imagepaths in imgsdir. Limit to first n if given. """
+    imgpaths = []
+    for dirpath, dirnames, filenames in os.walk(imgsdir):
+        for f in [f for f in sorted(filenames) if isimgext(f)]:
+            if (n != None) and (len(imgpaths) == n):
+                return imgpaths
+            imgpaths.append(os.path.join(dirpath, f))
+    return imgpaths

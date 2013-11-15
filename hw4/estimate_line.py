@@ -23,6 +23,8 @@ def estimate_line(edgemap, MAX_ITERS=400, T=3.0, ALPHA=8):
     w = edgemap.shape[1]
     h = edgemap.shape[0]
     nb_active = len(edge_idxs[0])
+    if nb_active == 0:
+        return None # Couldn't detect any edges!
     
     cnt_iter = 0
     while cnt_iter < MAX_ITERS:
