@@ -4,3 +4,18 @@ HW 4: Build a Lane-Departure Warning System
 Name: Eric Kim
 SID: 904354738
 
+======================
+==== Instructions ====
+======================
+
+For a sample run of the line detection, run:
+
+    $ python detect_lanes.py imgs_sample
+
+This will process the images in imgs_sample/, and output the
+images of the detected lines into the current working directory. 
+
+For a description of options, use the -h option:
+
+    $ python detect_lanes.py -h
+
