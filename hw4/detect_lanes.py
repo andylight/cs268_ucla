@@ -200,6 +200,7 @@ def main():
         Irgb = draw_subwindow(Irgb, win1, colour=(255, 0, 0))
         Irgb = draw_subwindow(Irgb, win2, colour=(0, 255, 0))
         cv2.imwrite('{0}_lines.png'.format(util.get_filename(imgpath)), Irgb)
+        print "    LeftLane: {0}    RightLane: {1}".format(line1, line2)
     print("Done.")
 
 if __name__ == '__main__':
