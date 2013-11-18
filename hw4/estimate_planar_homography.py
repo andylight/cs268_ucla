@@ -41,15 +41,6 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
         pt_j = (compute_x(line2, h - y_cur), y_cur)
         pts.append((pt_i, pt_j))
         
-    #y_low = intrnd(y_win1 + 0.25*(h*win1[3]))
-    #y_high = intrnd(y_win1 - 0.25*(h*win1[3]))
-    ## First pair of points across from the lane
-    #pt1 = (compute_x(line1, h - y_low), y_low)
-    #pt2 = (compute_x(line2, h - y_low), y_low)
-    ## Second pair of points across from the lane
-    #pt3 = (compute_x(line1, h - y_high), y_high)
-    #pt4 = (compute_x(line2, h - y_high), y_high)
-    #pts = ((pt1, pt2), (pt3, pt4))
     r1 = solve_for_r1(pts,
                       K,
                       lane_width)
@@ -93,21 +84,36 @@ def solve_for_r1(pts, K, lane_width):
     """
     (fx, fy, (cx, cy)) = util_camera.get_intrinsics(K)
     # Construct data matrix A
-    A = np.zeros([len(pts) * 2, 4])
+    Araw = np.zeros([len(pts) * 2, 4])
     i = 0 # Actual index into A
     for ii, (pi, pj) in enumerate(pts):
         xi, yi = pi
         xj, yj = pj
-        A[i, :]   = (0, -fy, (-cy + yj), (yi - yj))
-        A[i+1, :] = (fx, 0, (cx - xj), (-xj + xi))
-        #A[i+2, :] = (-yj*fx, xj*fy, -yj*cx + xj*cy, yj*xi - xj*yi)
+        Araw[i, :]   = (0, -fy, (-cy + yj), (yi - yj))
+        Araw[i+1, :] = (fx, 0, (cx - xj), (-xj + xi))
+        #Araw[i+2, :] = (-yj*fx, xj*fy, -yj*cx + xj*cy, yj*xi - xj*yi)
         i += 2
+    rnk = numpy.linalg.matrix_rank(Araw)
+    print "    Rank(A):", rnk
+    if rnk == 3:
+        A = Araw # Perfect! Just the rank we want.
+    elif rnk < 3:
+        raise Exception("Matrix A needs to have rank either 4 or 3! Rank was: {0}".format(rnk))
+    else:
+        # A is full rank - perform fixed-rank approx. -> rank 3
+        print "(solve_for_r1) A is full rank, performing fixed rank approx..."
+        U, S, V = numpy.linalg.svd(Araw)
+        S_part = np.diag([S[0], S[1], S[2], 0]) # Kill last singular value
+        S_new = np.zeros([Araw.shape[0], 4])
+        S_new[0:4, :] = S_part
+        A = np.dot(U, np.dot(S_new, V))
+        print "    new rank:", np.linalg.matrix_rank(A)
+        if np.linalg.matrix_rank(A) != 3:
+            raise Exception("(solve_for_r1) What?! Fixed-rank approx. failed!")
     U, S, V = numpy.linalg.svd(A)
     v = V[-1, :]
     residual = numpy.linalg.norm(np.dot(A, v.T))
-    print "== compute_r1"
-    print "Residual: {0}".format(residual)
-    print "    Rank(A):", np.linalg.matrix_rank(A)
+    print "(solve_for_r1) Residual: {0}".format(residual)
     gamma = v[-1]
     v_norm = v / gamma
     r11, r21, r31, _ = v_norm
@@ -162,7 +168,7 @@ def solve_for_t(pts, K, r1, r3, lane_width):
     r13, r23, r33 = r3
     ww = lane_width / 2
     # Construct data matrix A
-    A = np.zeros([len(pts) * 6, 5])
+    Araw = np.zeros([len(pts) * 6, 5])
     i = 0 # Actual index into A
     for ii, (pi, pj) in enumerate(pts):
         xi, yi = pi
@@ -173,18 +179,34 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         bj = np.array([(xj - cx) / fx,
                        (yj - cy) / fy,
                        1]).T
-        A[i, :]   = [r13, 1, 0, 0, -ww*r11 - bi[0]]
-        A[i+1, :] = [r23, 0, 1, 0, -ww*r21 - bi[1]]
-        A[i+2, :] = [r33, 0, 0, 1, -ww*r31 - bi[2]]
+        Araw[i, :]   = [r13, 1, 0, 0, -ww*r11 - bi[0]]
+        Araw[i+1, :] = [r23, 0, 1, 0, -ww*r21 - bi[1]]
+        Araw[i+2, :] = [r33, 0, 0, 1, -ww*r31 - bi[2]]
 
-        A[i+3, :] = [r13, 1, 0, 0, -ww*r11 - bj[0]]
-        A[i+4, :] = [r23, 0, 1, 0, -ww*r21 - bj[1]]
-        A[i+5, :] = [r33, 0, 0, 1, -ww*r31 - bj[2]]
+        Araw[i+3, :] = [r13, 1, 0, 0, -ww*r11 - bj[0]]
+        Araw[i+4, :] = [r23, 0, 1, 0, -ww*r21 - bj[1]]
+        Araw[i+5, :] = [r33, 0, 0, 1, -ww*r31 - bj[2]]
         i += 6
-    print "== compute_t"
-    print "    Rank(A):", np.linalg.matrix_rank(A)
+    rnk = np.linalg.matrix_rank(Araw)
+    if rnk == 4:
+        A = Araw # Perfect! Just the rank we want.
+    elif rnk < 4:
+        raise Exception("(solve_for_r3) Matrix rank needs to be either 5 or 4 (was: {0})".format(rnk))
+    else:
+        # Perform fixed-rank approx on Araw (want rank 4)
+        U, S, V = np.linalg.svd(Araw)
+        S_new = np.zeros([U.shape[0], 5])
+        S_new[0:4, :] = np.diag(S[0:4])
+        A = np.dot(U, np.dot(S, V))
+        print np.allclose(Araw, A)
+        print Araw[0,:]
+        print '=='
+        print A[0,:]
+        
+    print "(solve_for_t): Rank(A):", np.linalg.matrix_rank(A)
     U, S, V = numpy.linalg.svd(A)
     v = V[-1, :]
+    print "    residual: {0}".format(np.linalg.norm(np.dot(A, v)))
     gamma = v[-1]
     v_norm = v / gamma
     Z, tx, ty, tz, _ = v_norm
@@ -213,8 +235,8 @@ def main():
         pt_np = np.array(pt)
         pt_img = np.dot(H, pt_np)
         pt_img = pt_img / pt_img[2]
-        print pt_img
-    
+        print "World {0} -> {1}".format(pt, pt_img)
+
     print "Done."
 
 if __name__ == '__main__':
