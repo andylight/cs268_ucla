@@ -31,15 +31,25 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
     x_win2 = intrnd(w * win2[0])
     y_win2 = intrnd(h * win2[1])
     
-    y_low = intrnd(y_win1 + 0.25*(h*win1[3]))
-    y_high = intrnd(y_win1 - 0.25*(h*win1[3]))
-    # First pair of points across from the lane
-    pt1 = (compute_x(line1, h - y_low), y_low)
-    pt2 = (compute_x(line2, h - y_low), y_low)
-    # Second pair of points across from the lane
-    pt3 = (compute_x(line1, h - y_high), y_high)
-    pt4 = (compute_x(line2, h - y_high), y_high)
-    pts = ((pt1, pt2), (pt3, pt4))
+    pts = []
+    NUM = 10
+    h_win = intrnd(h*win1[3]) # Assume window heights same btwn left/right
+    for i in xrange(NUM):
+        frac = i / float(NUM)
+        y_cur = intrnd((y_win1-(h_win/2) + frac*h_win))
+        pt_i = (compute_x(line1, h - y_cur), y_cur)
+        pt_j = (compute_x(line2, h - y_cur), y_cur)
+        pts.append((pt_i, pt_j))
+        
+    #y_low = intrnd(y_win1 + 0.25*(h*win1[3]))
+    #y_high = intrnd(y_win1 - 0.25*(h*win1[3]))
+    ## First pair of points across from the lane
+    #pt1 = (compute_x(line1, h - y_low), y_low)
+    #pt2 = (compute_x(line2, h - y_low), y_low)
+    ## Second pair of points across from the lane
+    #pt3 = (compute_x(line1, h - y_high), y_high)
+    #pt4 = (compute_x(line2, h - y_high), y_high)
+    #pts = ((pt1, pt2), (pt3, pt4))
     r1 = solve_for_r1(pts,
                       K,
                       lane_width)
@@ -48,10 +58,11 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
     vanishing_pt[1] = h - vanishing_pt[1]
     ## DEBUG Plot points on image, save to file for visual verification
     Irgb = util.to_rgb(I)
-    cv2.circle(Irgb, tuple(map(intrnd, pt1)), 5, (255, 0, 0))
-    cv2.circle(Irgb, tuple(map(intrnd, pt2)), 5, (255, 0, 0))
-    cv2.circle(Irgb, tuple(map(intrnd, pt3)), 5, (0, 255, 0))
-    cv2.circle(Irgb, tuple(map(intrnd, pt4)), 5, (0, 255, 0))
+    COLOURS = [(255, 0, 0), (0, 255, 0)]
+    for i, (pt_i, pt_j) in enumerate(pts):
+        clr = COLOURS[i % 2]
+        cv2.circle(Irgb, tuple(map(intrnd, pt_i)), 5, clr)
+        cv2.circle(Irgb, tuple(map(intrnd, pt_j)), 5, clr)
     cv2.circle(Irgb, (intrnd(vanishing_pt[0]), intrnd(vanishing_pt[1])), 5, (0, 0, 255))
     cv2.imwrite("_Irgb.png", Irgb)
 
@@ -96,7 +107,7 @@ def solve_for_r1(pts, K, lane_width):
     residual = numpy.linalg.norm(np.dot(A, v.T))
     print "== compute_r1"
     print "Residual: {0}".format(residual)
-    print "    Rank(A):", np.rank(A)
+    print "    Rank(A):", np.linalg.matrix_rank(A)
     gamma = v[-1]
     v_norm = v / gamma
     r11, r21, r31, _ = v_norm
@@ -171,7 +182,7 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         A[i+5, :] = [r33, 0, 0, 1, -ww*r31 - bj[2]]
         i += 6
     print "== compute_t"
-    print "    Rank(A):", np.rank(A)
+    print "    Rank(A):", np.linalg.matrix_rank(A)
     U, S, V = numpy.linalg.svd(A)
     v = V[-1, :]
     gamma = v[-1]
@@ -193,9 +204,16 @@ def main():
     I = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_GRAYSCALE)
     H = estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width)
     print H
-    print "    rank(H): {0}".format(np.rank(H))
+    print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
+    print "The following should be identity (inv(H) * H):"
     print np.dot(numpy.linalg.inv(H), H)
-    pdb.set_trace()
+
+    print "(Evaluating a few world points to see where they lie on the image)"
+    for pt in [(-1.83, 2, 1), (-1.83, 5, 1), (0, 0, 1), (-12347, 1281, 1)]:
+        pt_np = np.array(pt)
+        pt_img = np.dot(H, pt_np)
+        pt_img = pt_img / pt_img[2]
+        print pt_img
     
     print "Done."
 
