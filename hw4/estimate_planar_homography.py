@@ -59,6 +59,11 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
 
     r3 = solve_for_r3(vanishing_pt, line1, line2, K)
     T = solve_for_t(pts, K, r1, r3, lane_width)
+    print "T_pre:", T
+    T = T * (2.1798 / T[1])    # Height of camera is 2.1798 meters
+    T[2] = 1 # We want the ref. frame to be directly below camera (why 1?!)
+    #T = T / np.linalg.norm(T)
+    print "T_post:", T
     
     H = np.zeros([3,3])
     H[:, 0] = r1
@@ -227,16 +232,49 @@ def main():
     H = estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width)
     print H
     print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
-    print "The following should be identity (inv(H) * H):"
-    print np.dot(numpy.linalg.inv(H), H)
+    print "    det(H): {0}".format(np.linalg.det(H))
+    # Normalize H to have det(H) = +1
+    # Question: do we have to do this? Only rotation matrices require
+    # det(R) = +1. I don't think I need det(H) = +1. Hmm. Maybe I should
+    # decompose H into its R, T, N instead?
+    det_A = np.linalg.det(H)
+    if not np.allclose(det_A, 0):
+        # Recall: if A is nxn matrix: 
+        #     We want: det(A*c) = 1 for some scaling factor c
+        #     det(A*c) = (c^n)*det(A) = 1
+        #     => c^n = (1 / det(A))
+        #     => c = (1 / det(A)) ^ (1/n)
+        if det_A > 0:
+            c = np.power((1 / det_A), 1 / 3.0)
+        else:
+            c = -np.power((1 / -det_A), 1/ 3.0)
+        H = H * c
+        print "Normalized H"
+        print H
+        print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
+        print "    det(H): {0}".format(np.linalg.det(H))
+    if np.linalg.matrix_rank(H) == 3:
+        print "The following should be identity (inv(H) * H):"
+        print np.dot(numpy.linalg.inv(H), H)
 
     print "(Evaluating a few world points to see where they lie on the image)"
-    for pt in [(-1.83, 2, 1), (-1.83, 5, 1), (0, 0, 1), (-12347, 1281, 1)]:
-        pt_np = np.array(pt)
-        pt_img = np.dot(H, pt_np)
-        pt_img = pt_img / pt_img[2]
-        print "World {0} -> {1}".format(pt, pt_img)
-
+    Irgb = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_COLOR)
+    # world point: (X, Z, 1), i.e. point on world plane (road)
+    world_pts = [((0, 0, 1), (0, 1, 1), (0, 2, 1), (0, 4, 1), (0, 8, 1), (0, 16, 1), (0, 32, 1), (0, 10000, 1)),
+                 ((-1.83, 0, 1), (-1.83, 2, 1), (-1.83, 4, 1), (-1.83, 8, 1), (-1.83, 10000, 1)),
+                 ((1.83, 0, 1), (1.83, 2, 1), (1.83, 4, 1), (1.83, 8, 1), (1.83, 10000, 1))]
+    colours = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    for i, sub_pts in enumerate(world_pts):
+        clr = colours[i % len(colours)]
+        for pt in sub_pts:
+            pt_np = np.array(pt)
+            pt_img = np.dot(H, pt_np)
+            pt_img = pt_img / pt_img[2]
+            print "(i={0}) World {1} -> {2}".format(i, pt, pt_img)
+            cv2.circle(Irgb, (intrnd(pt_img[0]), intrnd(pt_img[1])), 3, clr)
+        print
+        
+    cv2.imwrite("_Irgb_pts.png", Irgb)
     print "Done."
 
 if __name__ == '__main__':
