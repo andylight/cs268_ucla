@@ -22,7 +22,7 @@ def intrnd(x):
 
 def isimgext(path):
     p = path.lower()
-    return p.endswith('.png') or p.endswith('.jpeg') or p.endswith('.jpg')
+    return p.endswith('.png') or p.endswith('.jpeg') or p.endswith('.jpg') or p.endswith('.bmp')
 
 def get_imgpaths(imgsdir, n=None):
     """ Outputs all imagepaths in imgsdir. Limit to first n if given. """
