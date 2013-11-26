@@ -47,6 +47,19 @@ def draw_line(Irgb, line):
     cv.Line(cv.fromarray(Irgb), tuple(intrnd(*pts[0])), tuple(intrnd(*pts[-1])), (0, 255, 0))
     return Irgb
 
+def draw_points(Irgb, pts, color=(255, 0, 0)):
+    """ Overlays points onto the image.
+    Input:
+        nparray Irgb: H x W x 3
+        nparray pts: N x 2
+            Rows of pixel coords (x,y)
+    """
+    for (x, y) in pts:
+        Irgb[y, x, 0] = color[0]
+        Irgb[y, x, 1] = color[1]
+        Irgb[y, x, 2] = color[2]
+    return Irgb
+
 def find_line_segment(line, w, h):
     """ Computes good start/end points to display the line on the img
     with dimensions (w,h)
