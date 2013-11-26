@@ -17,8 +17,11 @@ def to_rgb(I, do_cpy=True):
     out[:,:,2] = I
     return out
 
-def intrnd(x):
-    return int(round(x))
+def intrnd(*args):
+    if len(args) == 1:
+        return int(round(args[0]))
+    else:
+        return [int(round(x)) for x in args]
 
 def isimgext(path):
     p = path.lower()

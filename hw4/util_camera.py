@@ -2,6 +2,10 @@
 Various utility functions relating to camera/geometry.
 """
 
+import numpy as np, cv
+
+from util import intrnd
+
 def get_intrinsics(K):
     """ Return the camera intrinsic parameters from K.
     Input:
@@ -17,3 +21,96 @@ def compute_x(line, y):
 def compute_y(line, x):
     """ ax + by + c = 0 => y = (-ax - c) / b """
     return (-line[0]*x - line[2]) / line[1]
+
+def pt2homo(pt):
+    """ Image point to homogeneous coords. """
+    if len(pt) == 3:
+        return pt
+    if len(pt) != 2:
+        raise TypeError("Must pass image coord to pt2homo: {0}".format(pt))
+    return np.hstack((pt, np.array([1.0])))
+
+def homo2pt(pt_h):
+    """ Homogeneous coord to image (pixel) coord. """
+    if len(pt_h) != 3:
+        raise TypeError("Must pass 3-dim vector to homo2pt: {0}".format(pt_h))
+    pt = pt_h[0:2]
+    return pt / pt_h[2]
+
+def draw_line(Irgb, line):
+    h, w = Irgb.shape[0:2]
+    pts = []
+    for x in xrange(w):
+        y = compute_line_y(line, x)
+        if y > 0 and y < h:
+            pts.append((x,y))
+    cv.Line(cv.fromarray(Irgb), tuple(intrnd(*pts[0])), tuple(intrnd(*pts[-1])), (0, 255, 0))
+    return Irgb
+
+def find_line_segment(line, w, h):
+    """ Computes good start/end points to display the line on the img
+    with dimensions (w,h)
+    NOTE: This function is just wrong and terrible. Use draw_line() instead.
+    """
+    ## Need at least 1 positive intercept.
+    pt_xintercept = (compute_line_x(line, 0), 0)
+    pt_yintercept = (0, compute_line_y(line, 0))
+    is_xint_pos = (pt_xintercept[0] >= 0 and pt_xintercept[1] >= 0)
+    is_yint_pos = (pt_yintercept[0] >= 0 and pt_yintercept[1] >= 0)
+    if not any((is_xint_pos, is_yint_pos)):
+        raise TypeError("Line does not occur in image")
+    if is_xint_pos:
+        ptA = pt_xintercept
+    else:
+        ptA = pt_yintercept
+    def get_valid(pt1, pt2):
+        pt1 = pt1 / pt1[2]
+        pt2 = pt2 / pt2[2]
+        if pt1[0] >= 0 and pt1[1] >= 0 and pt1[0] < w:
+            return pt1
+        elif pt2[0] >= 0 and pt2[0] >= 0 and pt2[1] < h:
+            return pt2
+        else:
+            return None
+    ptB = get_valid(np.cross(line, [0, 1, -(h-1)]),
+                    np.cross(line, [1, 0, -(w-1)]))
+    if ptB == None:
+        raise Exception("WAT")
+    return (ptA, tuple(ptB[0:2]))
+
+def compute_line_x(line, y):
+    """ Computes x coord of line at y:
+        ax + by + c = 0
+        x = (-by - c) / a
+    """
+    return (-line[1]*y - line[2]) / line[0]
+def compute_line_y(line, x):
+    """ Computes x coord of line at y:
+        ax + by + c = 0
+        y = (-ax - c) / b
+    """
+    return (-line[0]*x - line[2]) / line[1]
+
+def make_crossprod_mat(v):
+    """ Constructs the 3x3 skew-symmetric matrix representing the
+    cross-product with v:
+        v x w = v_hat * w
+    Where 'x' denotes cross product, '*' denotes matrix mult, and
+    v_hat is the output of: make_crossprod_mat(v)
+    Input:
+        nparray v: (2 x 1) or (3 x 1)
+            If v is (2x1), then this will 'upgrade' it to homogenous
+            coordinate prior to constructing v_hat.
+    Output:
+        nparray v_hat: (3x3)
+    """
+    if len(v) > 3:
+        raise Exception("Must pass 2x1 or 3x1 vector to make_crossprod_mat \
+(Received: {0})".format(v.shape))
+    if len(v) == 2:
+        v = np.hstack((v, np.array([1.0])), dtype=v.dtype)
+    
+    v_hat = np.array([[0, -v[2], v[1]],
+                      [v[2], 0, -v[0]],
+                      [-v[1], v[0], 0]], dtype=v.dtype)
+    return v_hat
