@@ -229,11 +229,12 @@ def main():
     lane_width = 3.66 # 3.66 meters
     imgpath = 'imgs_sample/f00001.png'
     I = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    #### Draw lines on _Irgbline.png to sanity check lane detection
     Irgb = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_COLOR)
     Irgb = util_camera.draw_line(Irgb, line1, (0, 255, 0))
     Irgb = util_camera.draw_line(Irgb, line2, (255, 0, 0))
     cv2.imwrite("_Irgbline.png", Irgb)
-    return
+
     H = estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width)
     print H
     print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
