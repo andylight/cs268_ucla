@@ -121,9 +121,30 @@ def make_crossprod_mat(v):
         raise Exception("Must pass 2x1 or 3x1 vector to make_crossprod_mat \
 (Received: {0})".format(v.shape))
     if len(v) == 2:
-        v = np.hstack((v, np.array([1.0])), dtype=v.dtype)
+        v = np.hstack((v, np.array([1.0])))
     
     v_hat = np.array([[0, -v[2], v[1]],
                       [v[2], 0, -v[0]],
                       [-v[1], v[0], 0]], dtype=v.dtype)
     return v_hat
+
+def normalize_det(A):
+    """ Normalize A by a positive scalar factor c such that we get a
+    matrix with determinant = +1.
+    Recall: if A is nxn matrix: 
+        We want: det(A*c) = 1 for some scaling factor c
+        det(A*c) = (c^n)*det(A) = 1
+        => c^n = (1 / det(A))
+        => c = (1 / det(A)) ^ (1/n)
+    Input:
+        nparray A: N x N
+    Output:
+        nparray Anorm
+            Anorm will have determinant +1.
+    """
+    det_A = np.linalg.det(A)
+    if det_A > 0:
+        c = np.power((1 / det_A), 1 / 3.0)
+    else:
+        c = -np.power((1 / -det_A), 1/ 3.0)
+    return A * c
