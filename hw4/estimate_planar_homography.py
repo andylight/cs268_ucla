@@ -222,13 +222,18 @@ def main():
     K = np.array([[309.4362,     0,        317.9034],
                   [0,         344.2161,    256.5352],
                   [0,            0,            1   ]])
-    line1 = np.array([  -1.35431663,    1.,          124.12336564])
-    line2 = np.array([   1.23775052,    1.,         -695.71784631])
+    line1 = np.array([  1.30459272,     1.,     -589.16024465])
+    line2 = np.array([  -1.26464497,    1.,     228.18829664])
     win1 = (0.4, 0.60, 0.2, 0.25)
     win2 = (0.62, 0.60, 0.2, 0.25)
     lane_width = 3.66 # 3.66 meters
     imgpath = 'imgs_sample/f00001.png'
     I = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    Irgb = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_COLOR)
+    Irgb = util_camera.draw_line(Irgb, line1, (0, 255, 0))
+    Irgb = util_camera.draw_line(Irgb, line2, (255, 0, 0))
+    cv2.imwrite("_Irgbline.png", Irgb)
+    return
     H = estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width)
     print H
     print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
