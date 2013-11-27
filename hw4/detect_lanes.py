@@ -1,7 +1,7 @@
 import sys, os, time, pdb, argparse
 import numpy as np, cv2
 
-import util
+import util, util_camera
 
 from estimate_line import estimate_line
 from util import intrnd
@@ -78,13 +78,15 @@ def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
     # Fix line to be in image coordinate system (not window coord sys)
     if line1_norm != None:
         a1, b1, c1 = line1_norm
-        c1_out = -a1*(x_left-(w_left/2)) - b1*((h-1-y_left)-(h_left/2)) + c1
+        #c1_out = -a1*(x_left-(w_left/2)) - b1*((h-1-y_left)-(h_left/2)) + c1
+        c1_out = -a1*(x_left-(w_left/2)) - b1*((y_left)-(h_left/2)) + c1
         line1_out = np.array([a1, b1, c1_out])
     else:
         line1_out = None
     if line2_norm != None:
         a2, b2, c2 = line2_norm
-        c2_out = -a2*(x_right-(w_right/2)) - b2*((h-1-y_right)-(h_right/2)) + c2
+        #c2_out = -a2*(x_right-(w_right/2)) - b2*((h-1-y_right)-(h_right/2)) + c2
+        c2_out = -a2*(x_right-(w_right/2)) - b2*((y_right)-(h_right/2)) + c2
         line2_out = np.array([a2, b2, c2_out])
     else:
         line2_out = None
@@ -98,6 +100,7 @@ def plot_lines(I, line1, line2):
     Output:
         nparray Iout
     """
+    # TODO: Working nuking this, this is BAD! See overlay_line().
     Irgb = util.to_rgb(I)
     if line1 != None:
         Irgb = overlay_line(Irgb, line1, colour=(255, 0, 0))
@@ -115,6 +118,8 @@ def overlay_line(I, line, colour=(255, 0, 0), thick=1):
     Output:
         nparray I_rgb
     """
+    # TODO: This uses lines in 'normal' coord system. BAD! I'm
+    # working on nuking this in favor of util_camera.draw_line()
     a, b, c = line # ax + by + c = 0 => y = (-ax - c) / b
     Irgb = util.to_rgb(I)
     h, w = Irgb.shape[0:2]
@@ -195,7 +200,10 @@ def main():
             print("    Error: Couldn't find left lane")
         if line2 == None:
             print("    Error: Couldn't find right lane.")
-        Irgb = plot_lines(I, line1, line2)
+        #Irgb = plot_lines(I, line1, line2)
+        Irgb = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_COLOR)
+        Irgb = util_camera.draw_line(Irgb, line1, (255, 0, 0))
+        Irgb = util_camera.draw_line(Irgb, line2, (0, 255, 0))
         # Draw subwindows on image
         Irgb = draw_subwindow(Irgb, win1, colour=(255, 0, 0))
         Irgb = draw_subwindow(Irgb, win2, colour=(0, 255, 0))

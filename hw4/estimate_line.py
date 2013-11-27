@@ -33,8 +33,8 @@ def estimate_line(edgemap, MAX_ITERS=400, T=3.0, ALPHA=8):
         if idx1 == idx2:
             cnt_iter += 1
             continue    # Degenerate case
-        pt1 = (edge_idxs[1][idx1], (h-1) - edge_idxs[0][idx1]) # (x, y)
-        pt2 = (edge_idxs[1][idx2], (h-1) - edge_idxs[0][idx2]) # subtract from (h-1) to get 'real' coords
+        pt1 = (edge_idxs[1][idx1], edge_idxs[0][idx1]) # (x, y)
+        pt2 = (edge_idxs[1][idx2], edge_idxs[0][idx2])
         line_init, residual = fit_line((pt1, pt2))
         a, b, c = line_init
         inliers = [idx1, idx2] # Current set of inliers
@@ -42,7 +42,7 @@ def estimate_line(edgemap, MAX_ITERS=400, T=3.0, ALPHA=8):
         for i in xrange(nb_active):
             if i == idx1 or i == idx2:
                 continue
-            pt_i = (edge_idxs[1][i], (h-1) - edge_idxs[0][i])
+            pt_i = (edge_idxs[1][i], edge_idxs[0][i])
             d = np.abs(a*pt_i[0] + b*pt_i[1] + c) / np.sqrt(a**2 + b**2)
             if d <= T:
                 inliers.append(i) # This point is close enough to our fitted line
@@ -54,7 +54,7 @@ def estimate_line(edgemap, MAX_ITERS=400, T=3.0, ALPHA=8):
             # This is the best model so far!
             pts = []
             for idx in inliers:
-                pt = (edge_idxs[1][idx], (h-1) - edge_idxs[0][idx])
+                pt = (edge_idxs[1][idx], edge_idxs[0][idx])
                 pts.append(pt)
             line, residual = fit_line(pts)
             best_nb_inliers = len(inliers)
