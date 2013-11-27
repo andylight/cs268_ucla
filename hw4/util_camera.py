@@ -2,7 +2,7 @@
 Various utility functions relating to camera/geometry.
 """
 
-import numpy as np, cv
+import numpy as np, cv, cv2
 
 from util import intrnd
 
@@ -38,6 +38,18 @@ def homo2pt(pt_h):
     return pt / pt_h[2]
 
 def draw_line(Irgb, line, color=(0, 255, 0)):
+    """ Draws a line on an input image. If input image is not a three
+    channeled image, then this will convert it.
+    Input:
+        nparray Irgb: (H x W x 1) or (H x W x 3)
+        nparray line: [float a, float b, float c]
+        tuple color: (int B, int G, int R)
+    Output:
+        nparray Irgb: (H x W x 3)
+    """
+    if len(Irgb.shape) != 3:
+        Irgb = cv2.cvtColor(Irgb, cv.CV_GRAY2BGR)
+        
     Irgb = Irgb.copy()
     h, w = Irgb.shape[0:2]
     pts = []
