@@ -37,14 +37,15 @@ def homo2pt(pt_h):
     pt = pt_h[0:2]
     return pt / pt_h[2]
 
-def draw_line(Irgb, line):
+def draw_line(Irgb, line, color=(0, 255, 0)):
+    Irgb = Irgb.copy()
     h, w = Irgb.shape[0:2]
     pts = []
     for x in xrange(w):
         y = compute_line_y(line, x)
         if y > 0 and y < h:
             pts.append((x,y))
-    cv.Line(cv.fromarray(Irgb), tuple(intrnd(*pts[0])), tuple(intrnd(*pts[-1])), (0, 255, 0))
+    cv.Line(cv.fromarray(Irgb), tuple(intrnd(*pts[0])), tuple(intrnd(*pts[-1])), color)
     return Irgb
 
 def draw_points(Irgb, pts, color=(255, 0, 0)):
