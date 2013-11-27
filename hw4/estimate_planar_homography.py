@@ -233,26 +233,6 @@ def main():
     print H
     print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
     print "    det(H): {0}".format(np.linalg.det(H))
-    # Normalize H to have det(H) = +1
-    # Question: do we have to do this? Only rotation matrices require
-    # det(R) = +1. I don't think I need det(H) = +1. Hmm. Maybe I should
-    # decompose H into its R, T, N instead?
-    det_A = np.linalg.det(H)
-    if not np.allclose(det_A, 0):
-        # Recall: if A is nxn matrix: 
-        #     We want: det(A*c) = 1 for some scaling factor c
-        #     det(A*c) = (c^n)*det(A) = 1
-        #     => c^n = (1 / det(A))
-        #     => c = (1 / det(A)) ^ (1/n)
-        if det_A > 0:
-            c = np.power((1 / det_A), 1 / 3.0)
-        else:
-            c = -np.power((1 / -det_A), 1/ 3.0)
-        H = H * c
-        print "Normalized H"
-        print H
-        print "    rank(H): {0}".format(np.linalg.matrix_rank(H))
-        print "    det(H): {0}".format(np.linalg.det(H))
     if np.linalg.matrix_rank(H) == 3:
         print "The following should be identity (inv(H) * H):"
         print np.dot(numpy.linalg.inv(H), H)
