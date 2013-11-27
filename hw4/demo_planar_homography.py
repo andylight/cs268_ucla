@@ -8,7 +8,7 @@ from util_camera import pt2homo, homo2pt
 """
 USAGE:
 
-    $ python estimate_planar_homography_simple.py [-h] [--show_epipolar]
+    $ python demo_planar_homography.py [-h] [--show_epipolar]
 
 Two quick demos about planar scenes and homographies. The test images
 are photos of a poster taken from a variety of viewpoints.
