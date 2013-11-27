@@ -14,7 +14,8 @@ Two quick demos about planar scenes and homographies. The test images
 are photos of a poster taken from a variety of viewpoints.
 
 test_koopa() takes two image views of the poster, and finds the 
-homography mapping points from one image to another.
+homography mapping points from one image to another. Displays the
+epipolar lines if --show_epipolar is passed.
 
 test_koopa_singleimg() takes one image view, and finds the homography
 mapping points from the image to points on the world frame (i.e. poster
@@ -38,7 +39,6 @@ def estimate_planar_homography(pts1, pts2):
     """
     pts1 = pts1.astype('float32')
     pts2 = pts2.astype('float32')
-    #return cv2.getPerspectiveTransform(pts1[0:4,:], pts2[0:4,:])
     retval, mask = cv2.findHomography(pts1, pts2)
     return retval
 
@@ -75,13 +75,15 @@ def get_worldplane_coords():
 def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     """ Here, I want to do "undo" the perspective distortion in the
     image, based on the fact that I know:
+        - The camera matrix K
         - The scene is planar
         - The location of four points in the image that create a 
           rectangle in the world plane with known metric lengths
           Note: I don't have to necessarily know the metric lengths,
-                but I should know the ratios to construct a corrected
-                image with lengths preserved.
-    In the literature, this is also known as: perspective rectification.
+                but at least I need to know length ratios to construct
+                a corrected image with length ratios preserved.
+    In the literature, this is also known as: perspective rectification,
+    perspective correction.
     """
     imgpath = os.path.join(IMGSDIR_KOOPA_MED, 'DSCN0643.png')
     pts1 = np.array([[373.0, 97.0],        # A (upper-left red corner)
@@ -100,7 +102,6 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     assert len(pts1) == len(worldpts)
     calib_imgpaths = util.get_imgpaths(IMGSDIR_CALIB_MED)
     print "(Calibrating camera...)"
-    
     if True:
         print "(Using pre-computed camera matrix K!)"
         K = np.array([[ 158.23796519,    0.0,          482.07814366],
@@ -110,7 +111,8 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
         K = calibrate_camera.calibrate_camera(calib_imgpaths, 9, 6, 0.023)
     print "Finished calibrating camera, K is:"
     print K
-    
+    Kinv = np.linalg.inv(K)
+
     pts1_norm = normalize_coords(pts1, K)
     HL = estimate_planar_homography(pts1_norm, worldpts)
 
@@ -123,7 +125,6 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     #### Normalize H := H / sigma_2(H_)
     U, S, V = np.linalg.svd(HL)
     H = HL / S[1]
-
     #### Enforce positive depth constraint
     flag_flipped = False
     for i, pt1 in enumerate(pts1_norm):
@@ -179,9 +180,6 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
             pt2_h = np.hstack((worldpts[ii], [1.0]))
             pt1_proj = np.dot(H_redone, pt1_h)
             pt1_proj /= pt1_proj[2]
-            #print pt1_proj
-            #print pt2_h
-            #print
             errs.append(np.linalg.norm(pt1_proj - pt2_h))
         print "Reprojection error: {0} (mean={1}, std={2})".format(sum(errs), np.mean(errs), np.std(errs))
 
@@ -203,56 +201,41 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     p_lr = (695, 324)   # Lowerright of greenbox (x,y)
     Hinv = np.linalg.inv(H)
     def compute_plane2I(pp_ul, pp_ur, pp_ll, pp_lr):
-        """ Computes H_RI, i.e. road->orthogonal-image. Input points 
-        are image pixel coords.
+        """ Computes homography that removes the perspective effects
+        from a portion of the image. We require that we know the
+        world-shape (i.e. a box) of the image region. In this case, we
+        know that the pixel coordinates describe a box with known
+        metric lengths.
+        Input points are image pixel coords.
+
+        Note: This doesn't use the computed H. Why? Well, I hardcoded
+        the worldpoints in pts_out: in general, you can use H, K to 
+        compute the pts_out, i.e.:
+            # pp_ur is pixel coord of upper-right corner of redbox
+            p_ur = np.dot(Kinv, pp_ur)  # p_ur is normalized coord
+            p_world_ur = np.dot(H, p_ur)
+            p_world_ur /= p_world_ur[2] # world plane coord of redbox upper-right corner
+        Now, p_world_ur is [0.175, 0.0, 1.0], as expected.
         """
         pts_img = np.array([pp_ul, pp_ur, pp_ll, pp_lr], dtype='float32')
         pts_out = np.array([[0.0, 0.0],    # upperleft
-                           [175, 0.0],  # upperright
-                           [0, 134],    # lowerleft
-                           [175, 134], # lowerright
+                           [175, 0.0],     # upperright, 0.175 cm * 1000
+                           [0, 134],       # lowerleft   0.134 cm * 1000
+                           [175, 134],     # lowerright
                            ], dtype='float32')
         HRI = cv2.getPerspectiveTransform(pts_img, pts_out)
         return HRI
-        Kinv = np.linalg.inv(K)
-        p_ul = util_camera.homo2pt(np.dot(Kinv, util_camera.pt2homo(pp_ul)))
-        p_ur = util_camera.homo2pt(np.dot(Kinv, util_camera.pt2homo(pp_ur)))
-        p_ll = util_camera.homo2pt(np.dot(Kinv, util_camera.pt2homo(pp_ll)))
-        p_lr = util_camera.homo2pt(np.dot(Kinv, util_camera.pt2homo(pp_lr)))
-        # Now, p_ul,p_ur,p_ll,p_lr are normalized coords
-        w = p_lr[0] - p_ul[0]
-        h = p_lr[1] - p_ul[1]
-        pts_I = np.array([[0.0, 0.0],    # upperleft
-                          [0.2, 0.0],      # upperright
-                          [0.0, 0.4],      # lowerleft
-                          [0.2, 0.4]])       # lowerright
-        p1_w = homo2pt(np.dot(H, np.hstack((p_ul, [1.0]))))
-        p2_w = homo2pt(np.dot(H, np.hstack((p_ur, [1.0]))))
-        p3_w = homo2pt(np.dot(H, np.hstack((p_ll, [1.0]))))
-        p4_w = homo2pt(np.dot(H, np.hstack((p_lr, [1.0]))))
-        pts_w = np.array([p1_w,
-                          p2_w,
-                          p3_w,
-                          p4_w])
-        pts_w = pts_w.astype('float32')
-        pts_I = pts_I.astype('float32')
-        HRI = cv2.getPerspectiveTransform(pts_w, pts_I)
-        print homo2pt(np.dot(HRI, pt2homo(p3_w)))
-        print pts_I[3]
-        return HRI
 
     HRI = compute_plane2I(p_ul, p_ur, p_ll, p_lr)
-    #T = np.dot(HRI, Hinv)
     T = HRI
     print 'T is:'
     print T
     I = cv2.imread(imgpath, cv.CV_LOAD_IMAGE_COLOR).astype('float64')
     I = (2.0*I) + 40    # Up that contrast! Orig. images are super dark.
-    print "Imin, Imax:", np.min(I), np.max(I)
-    #Ipatch = I[p_ul[1]-50:p_lr[1]+50, p_ul[0]-40:p_lr[0]+40]
-    Ipatch = I
-    Iwarp = cv2.warpPerspective(Ipatch, T, None)
-    print "Iwarpmin, Iwarpmax:", np.min(Iwarp), np.max(Iwarp)
+    # Ipatch = I[p_ul[1]:p_lr[1], p_ul[0]:p_lr[1]]
+    # Let's warp the entire image I with the homography, rather than
+    # just the Ipatch.
+    Iwarp = cv2.warpPerspective(I, T, None)
     print "(Displaying before/after images, press <any key> to exit.)"
     cv2.namedWindow('original')
     cv2.imshow('original', I.astype('uint8'))
@@ -261,6 +244,9 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     cv2.waitKey(0)
 
 def test_koopa(SHOW_EPIPOLAR=False):
+    """ Estimate the homography H between two image views of the planar
+    poster. Also decomposes H into {R, (1/d)T, N}.
+    """
     imgpath1 = os.path.join(IMGSDIR_KOOPA_SMALL, 'DSCN0643.png')
     imgpath2 = os.path.join(IMGSDIR_KOOPA_SMALL, 'DSCN0648.png')
     img1 = cv2.imread(imgpath1)
@@ -369,20 +355,6 @@ def test_koopa(SHOW_EPIPOLAR=False):
             print
             errs.append(np.linalg.norm(pt1_proj - pt2_h))
         print "Reprojection error: {0} (mean={1}, std={2})".format(sum(errs), np.mean(errs), np.std(errs))
-            
-        # This doesn't work, since I don't have T: I have (1/d)*T
-        '''
-        for ii, pt1 in enumerate(pts1_norm):
-            pt2 = pts2_norm[ii]
-            pt1_h = np.hstack((pt1, [1.0]))
-            pt1_out = np.dot(R, pt1_h) + Ts
-            pt1_out /= pt1_out[2]
-
-            print pt1
-            print pt1_out
-            print pt2
-            print
-        '''    
     
 def decompose_H(H, pts1=None, pts2=None):
     """ Decomposes homography H into (R, (1/d)*T, N), where (R,T) is
@@ -405,7 +377,6 @@ def decompose_H(H, pts1=None, pts2=None):
         U = -U
         Vt = -Vt
     V = Vt.T    # Recall: svd outputs V as V.T
-    #V = Vt
     v1 = V[:, 0]
     v2 = V[:, 1]
     v3 = V[:, 2]
