@@ -199,6 +199,7 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         raise Exception("(solve_for_r3) Matrix rank needs to be either 5 or 4 (was: {0})".format(rnk))
     else:
         # Perform fixed-rank approx on Araw (want rank 4)
+        print "(solve_for_t): Araw has full rank, performing fixed_rank approx..."
         U, S, V = np.linalg.svd(Araw)
         S_new = np.zeros([U.shape[0], 5])
         for i in xrange(4):
@@ -247,9 +248,14 @@ def main():
     print "(Evaluating a few world points to see where they lie on the image)"
     Irgb = cv2.imread(imgpath, cv2.CV_LOAD_IMAGE_COLOR)
     # world point: (X, Z, 1), i.e. point on world plane (road)
-    world_pts = [((0, 0, 1), (0, 1, 1), (0, 2, 1), (0, 4, 1), (0, 8, 1), (0, 16, 1), (0, 32, 1), (0, 10000, 1)),
-                 ((-1.83, 0, 1), (-1.83, 2, 1), (-1.83, 4, 1), (-1.83, 8, 1), (-1.83, 10000, 1)),
-                 ((1.83, 0, 1), (1.83, 2, 1), (1.83, 4, 1), (1.83, 8, 1), (1.83, 10000, 1))]
+    world_pts = [
+        # Points in MIDDLE of lane, going towards horizon
+        ((0, 0, 1), (0, 1, 1), (0, 2, 1), (0, 4, 1), (0, 8, 1), (0, 16, 1), (0, 32, 1), (0, 10000, 1)),
+        # Points on LEFT lane, going towards horizon
+        ((-1.83, 0, 1), (-1.83, 2, 1), (-1.83, 4, 1), (-1.83, 8, 1), (-1.83, 10000, 1)),
+        # Points on RIGHT lane, going towards horizon
+        ((1.83, 0, 1), (1.83, 2, 1), (1.83, 4, 1), (1.83, 8, 1), (1.83, 10000, 1))
+        ]
     colours = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
     for i, sub_pts in enumerate(world_pts):
         clr = colours[i % len(colours)]
