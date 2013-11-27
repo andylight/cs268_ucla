@@ -1,0 +1,11 @@
+These images are images taken by me of a (flat) poster on the floor.
+
+Reference points, along with metric distances (cm) can be found in:
+    reference_distances.png
+
+Calibration images taken with the same camera (during the same photo
+session) can be found in:
+
+    ../calibrate_ek_med/
+
+

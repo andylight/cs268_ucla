@@ -1,0 +1,12 @@
+Several photos of a calibration pattern taken with my camera. These
+are intended to be used in conjunction with the planar images in:
+
+    ../planar_koopa_med/
+
+These photos were taken during the same photo session as the above:
+in particular, zoom/autofocus/etc. was disabled.
+
+Note: I apologize, these calibration images are fairly poor quality,
+but, opencv seems robust enough to be able to perform calibration
+even on these.
+
