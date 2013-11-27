@@ -200,9 +200,10 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     p_ll = (303, 321)   # Lowerleft of bluebox (x,y)
     p_lr = (695, 324)   # Lowerright of greenbox (x,y)
     Hinv = np.linalg.inv(H)
-    def compute_plane2I(pp_ul, pp_ur, pp_ll, pp_lr):
+    def compute_IPM(pp_ul, pp_ur, pp_ll, pp_lr):
         """ Computes homography that removes the perspective effects
-        from a portion of the image. We require that we know the
+        from a portion of the image. I believe some call this the 
+        'Inverse Perspective Map' (IPM). We require that we know the
         world-shape (i.e. a box) of the image region. In this case, we
         know that the pixel coordinates describe a box with known
         metric lengths.
@@ -223,19 +224,18 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
                            [0, 134],       # lowerleft   0.134 cm * 1000
                            [175, 134],     # lowerright
                            ], dtype='float32')
-        HRI = cv2.getPerspectiveTransform(pts_img, pts_out)
-        return HRI
+        IPM = cv2.getPerspectiveTransform(pts_img, pts_out)
+        return IPM
 
-    HRI = compute_plane2I(p_ul, p_ur, p_ll, p_lr)
-    T = HRI
-    print 'T is:'
-    print T
+    IPM = compute_IPM(p_ul, p_ur, p_ll, p_lr)
+    print 'IPM is:'
+    print IPM
     I = cv2.imread(imgpath, cv.CV_LOAD_IMAGE_COLOR).astype('float64')
     I = (2.0*I) + 40    # Up that contrast! Orig. images are super dark.
     # Ipatch = I[p_ul[1]:p_lr[1], p_ul[0]:p_lr[1]]
     # Let's warp the entire image I with the homography, rather than
     # just the Ipatch.
-    Iwarp = cv2.warpPerspective(I, T, None)
+    Iwarp = cv2.warpPerspective(I, IPM, None)
     print "(Displaying before/after images, press <any key> to exit.)"
     cv2.namedWindow('original')
     cv2.imshow('original', I.astype('uint8'))
