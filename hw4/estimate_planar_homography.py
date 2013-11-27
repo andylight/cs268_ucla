@@ -37,8 +37,8 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
     for i in xrange(NUM):
         frac = i / float(NUM)
         y_cur = intrnd((y_win1-(h_win/2) + frac*h_win))
-        pt_i = (compute_x(line1, h - y_cur), y_cur)
-        pt_j = (compute_x(line2, h - y_cur), y_cur)
+        pt_i = (compute_x(line1, y_cur), y_cur)
+        pt_j = (compute_x(line2, y_cur), y_cur)
         pts.append((pt_i, pt_j))
         
     r1 = solve_for_r1(pts,
@@ -46,7 +46,7 @@ def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
                       lane_width)
     vanishing_pt = np.cross(line1, line2)
     vanishing_pt = vanishing_pt / vanishing_pt[2]
-    vanishing_pt[1] = h - vanishing_pt[1]
+    vanishing_pt[1] = vanishing_pt[1]
     ## DEBUG Plot points on image, save to file for visual verification
     Irgb = util.to_rgb(I)
     COLOURS = [(255, 0, 0), (0, 255, 0)]
@@ -201,8 +201,9 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         # Perform fixed-rank approx on Araw (want rank 4)
         U, S, V = np.linalg.svd(Araw)
         S_new = np.zeros([U.shape[0], 5])
-        S_new[0:4, :] = np.diag(S[0:4])
-        A = np.dot(U, np.dot(S, V))
+        for i in xrange(4):
+            S_new[i,i] = S[i]
+        A = np.dot(U, np.dot(S_new, V))
         print np.allclose(Araw, A)
         print Araw[0,:]
         print '=='
