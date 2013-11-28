@@ -86,7 +86,7 @@ def fit_line(pts):
         for i, pt in enumerate(pts):
             A[i, :] = (pt[0], pt[1], 1)
         U, S, V = linalg.svd(A) 
-        v = V[2, :]
+        v = V[-1, :]
         residual = linalg.norm(np.dot(A, v.T))
         return v, residual
 

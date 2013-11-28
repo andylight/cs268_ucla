@@ -29,7 +29,7 @@ def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
     """
     h, w = np.shape(I)[0:2]
     
-    edgemap = cv2.Canny(I, threshold1, threshold2, apertureSize=apertureSize)
+    #edgemap = cv2.Canny(I, threshold1, threshold2, apertureSize=apertureSize)
 
     # Compute left window dimensions
     x_left = intrnd(win1[0]*w)
@@ -50,14 +50,21 @@ def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
     if h_right % 2 == 0:
         h_right += 1
     
+    Iwin_left = I[(y_left-(h_left/2)):(y_left+(h_left/2)),
+                  (x_left-(w_left/2)):(x_left+(w_left/2))]
+    Iwin_rght = I[(y_right-(h_right/2)):(y_right+(h_right/2)),
+                  (x_right-(w_right/2)):(x_right+(w_right/2))]
+    edges_left = cv2.Canny(Iwin_left, threshold1, threshold2, apertureSize=apertureSize)
+    edges_right = cv2.Canny(Iwin_rght, threshold1, threshold2, apertureSize=apertureSize)
+    '''
     edges_left = edgemap[(y_left-(h_left/2)):(y_left+(h_left/2)),
                          (x_left-(w_left/2)):(x_left+(w_left/2))]
     edges_right = edgemap[(y_right-(h_right/2)):(y_right+(h_right/2)),
                           (x_right-(w_right/2)):(x_right+(w_right/2))]
-
+    '''
     # Find dominant line in each window
-    res1 = estimate_line(edges_left)
-    res2 = estimate_line(edges_right)
+    res1 = estimate_line(edges_left, MAX_ITERS=300)
+    res2 = estimate_line(edges_right, MAX_ITERS=300)
     if res1 == None:
         line1, inliers1 = None, None
     else:
