@@ -115,10 +115,10 @@ The current implementation of the lane detector (detect_lanes.py) is
 probably too-finely-tuned for the images in LDWS_test_short/. 
 
 The parameters of the lane detector (window size+location, Canny and
-RANSAC paramters), had to be manually adjusted to work reasonably well
-with the test images - I suspect that throwing a new set of images at
-this script will result in complete lane detection failure without
-manual parameter tweaking.
+RANSAC parameters), had to be manually adjusted to work reasonably 
+well with the test images - I suspect that throwing a new set of 
+images at this script will result in complete lane detection failure
+without manual parameter tweaking.
 
 Even with the parameters tuned, the lines outputted by RANSAC often
 don't truly run parallel to the lane. Instead, they tend to run from
