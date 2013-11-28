@@ -48,6 +48,15 @@ rather than re-computing it.")
 
 def main():
     args = parse_args()
+    if not os.path.exists(IMGSDIR_CALIB):
+        print "(ERROR) Calibration images not found. Please place \
+the LDWS_calibrate_short/ images in the current directory."
+        exit(1)
+    if not os.path.exists(IMGSDIR_TEST):
+        print "(ERROR) Test images not found. Please place the \
+LDWS_test_short/ images in the current directory."
+        exit(1)
+
     imgpaths_calib = util.get_imgpaths(IMGSDIR_CALIB)
     if not os.path.isdir(args.imgsdir):
         imgpaths_test = [args.imgsdir]
