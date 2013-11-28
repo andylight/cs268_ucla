@@ -104,3 +104,33 @@ were accurate:
 
 where alpha=[0.0, 1.0] is a tunable parameter weighting the past lane
 estimate with the current lane estimate.
+
+====================
+==== Weaknesses ====
+====================
+
+1.) Lane Detection can be improved.
+
+The current implementation of the lane detector (detect_lanes.py) is
+probably too-finely-tuned for the images in LDWS_test_short/. 
+
+The parameters of the lane detector (window size+location, Canny and
+RANSAC paramters), had to be manually adjusted to work reasonably well
+with the test images - I suspect that throwing a new set of images at
+this script will result in complete lane detection failure without
+manual parameter tweaking.
+
+Even with the parameters tuned, the lines outputted by RANSAC often
+don't truly run parallel to the lane. Instead, they tend to run from
+one "corner" of the lane to the opposite "corner" (if you consider a
+lane as a very thin, long rectangle).
+
+Because accurate estimation of the homography H is dependent on
+accurate lane detections, improving this step will certainly improve
+the entire system.
+
+2.) Performance.
+
+The current system takes about ~1-2 seconds to process each image.
+So, it is very much unsuitable for real-time usage. The majority of
+the time is spent detecting the lanes.
