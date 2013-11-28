@@ -37,6 +37,23 @@ def homo2pt(pt_h):
     pt = pt_h[0:2]
     return pt / pt_h[2]
 
+def normalize_coords(pts, K):
+    """ Normalize pixel coordinates into image coordinates with
+    intrinsic matrix K.
+    Input:
+        nparray pts: N x 2
+    Output:
+        nparray pts_norm: N x 2
+    """
+    out = np.zeros(pts.shape, dtype=pts.dtype)
+    Kinv = np.linalg.inv(K)
+    for i, pt in enumerate(pts):
+        pt_h = np.hstack((pt, 1.0))
+        pt_norm_h = np.dot(Kinv, pt_h)
+        pt_norm = pt_norm_h[0:2]
+        out[i, :] = pt_norm
+    return out
+
 def draw_line(Irgb, line, color=(0, 255, 0)):
     """ Draws a line on an input image. If input image is not a three
     channeled image, then this will convert it.
@@ -161,3 +178,93 @@ def normalize_det(A):
     else:
         c = -np.power((1 / -det_A), 1/ 3.0)
     return A * c
+
+def decompose_H(H, pts1=None, pts2=None):
+    """ Decomposes homography H into (R, (1/d)*T, N), where (R,T) is
+    the relative camera motion between the planes, and N is the normal
+    vector of the plane w.r.t. the first camera view.
+    Input:
+        nparray H: 3x3
+        nparray pts1, pts2: Nx2
+            If given, then this function will only output the
+            physically possible (R,T,N) by enforcing the positive
+            depth constraint.
+    Output:
+        (nparray R, nparray Ts, nparray N)
+    Where R is 3x3, N is a 3x1 column vector, and Ts is a 3x1 column
+    vector defined UP TO an unknown scale (1/d).
+    """
+    U, S, Vt = np.linalg.svd(np.dot(H.T, H))
+    if np.linalg.det(U) < 0:
+        # We require that U, Vt have det=+1
+        U = -U
+        Vt = -Vt
+    V = Vt.T    # Recall: svd outputs V as V.T
+    v1 = V[:, 0]
+    v2 = V[:, 1]
+    v3 = V[:, 2]
+    norm_ = np.sqrt(S[0]**2.0 - S[2]**2.0)
+    u1 = ((np.sqrt(1 - S[2]**2.0)*v1) + (np.sqrt(S[0]**2.0 - 1)*v3)) / norm_
+    u2 = ((np.sqrt(1 - S[2]**2.0)*v1) - (np.sqrt(S[0]**2.0 - 1)*v3)) / norm_
+    def make_U1():
+        U1 = np.zeros((3, 3))
+        U1[:, 0] = v2
+        U1[:, 1] = u1
+        U1[:, 2] = np.dot(make_crossprod_mat(v2), u1)
+        return U1
+    def make_U2():
+        U2 = np.zeros((3, 3))
+        U2[:, 0] = v2
+        U2[:, 1] = u2
+        U2[:, 2] = np.dot(make_crossprod_mat(v2), u2)
+        return U2
+    def make_W1():
+        W1 = np.zeros((3,3))
+        W1[:, 0] = np.dot(H, v2)
+        W1[:, 1] = np.dot(H, u1)
+        W1[:, 2] = np.dot(make_crossprod_mat(np.dot(H, v2)), np.dot(H, u1))
+        return W1
+    def make_W2():
+        W2 = np.zeros((3, 3))
+        W2[:, 0] = np.dot(H, v2)
+        W2[:, 1] = np.dot(H, u2)
+        W2[:, 2] = np.dot(make_crossprod_mat(np.dot(H, v2)), np.dot(H, u2))
+        return W2
+    U1 = make_U1()
+    U2 = make_U2()
+    W1 = make_W1()
+    W2 = make_W2()
+    
+    # Generate 4 possible solutions
+    R1 = np.dot(W1, U1.T)
+    N1 = np.dot(make_crossprod_mat(v2), u1)
+    Ts1 = np.dot((H - R1), N1)
+    
+    R2 = np.dot(W2, U2.T)
+    N2 = np.dot(make_crossprod_mat(v2), u2)
+    Ts2 = np.dot((H - R2), N2)
+    
+    R3 = R1
+    N3 = -N1
+    Ts3 = -Ts1
+    
+    R4 = R2
+    N4 = -N2
+    Ts4 = -Ts2
+    ## Remove physically impossible decomps: n3 < 0
+    decomps = []
+    if N1[2] < 0:
+        # N1 is impossible, N3 must be correct
+        R3 = normalize_det(R3)
+        decomps.append((R3, Ts3, N3))
+    else:
+        R1 = normalize_det(R1)
+        decomps.append((R1, Ts1, N1))
+    if N2[2] < 0:
+        # N2 is impossible, N4 must be correct
+        R4 = normalize_det(R4)
+        decomps.append((R4, Ts4, N4))
+    else:
+        R2 = normalize_det(R2)
+        decomps.append((R2, Ts2, N2))
+    return decomps

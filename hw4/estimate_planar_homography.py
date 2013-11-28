@@ -3,7 +3,7 @@ import util_camera, util
 import numpy as np, numpy.linalg, cv2
 
 from util import intrnd
-from util_camera import compute_x, compute_y
+from util_camera import compute_x, compute_y, pt2homo, homo2pt
 
 def estimate_planar_homography(I, line1, line2, K, win1, win2, lane_width):
     """ Estimates the planar homography H between the camera image
@@ -108,6 +108,11 @@ def solve_for_r1(pts, K, lane_width):
         # A is full rank - perform fixed-rank approx. -> rank 3
         print "(solve_for_r1) A is full rank, performing fixed rank approx..."
         U, S, V = numpy.linalg.svd(Araw)
+        if (np.linalg.det(V) < 0):
+            # We require U,V to have positive determinant
+            print "    U,V had negative determinant, correcting."
+            U = -U
+            V = -V
         S_part = np.diag([S[0], S[1], S[2], 0]) # Kill last singular value
         S_new = np.zeros([Araw.shape[0], 4])
         S_new[0:4, :] = S_part
@@ -116,6 +121,11 @@ def solve_for_r1(pts, K, lane_width):
         if np.linalg.matrix_rank(A) != 3:
             raise Exception("(solve_for_r1) What?! Fixed-rank approx. failed!")
     U, S, V = numpy.linalg.svd(A)
+    if (np.linalg.det(V) < 0):
+        # We require U,V to have positive determinant
+        print "    U,V had negative determinant, correcting."
+        U = -U
+        V = -V
     v = V[-1, :]
     residual = numpy.linalg.norm(np.dot(A, v.T))
     print "(solve_for_r1) Residual: {0}".format(residual)
@@ -201,6 +211,9 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         # Perform fixed-rank approx on Araw (want rank 4)
         print "(solve_for_t): Araw has full rank, performing fixed_rank approx..."
         U, S, V = np.linalg.svd(Araw)
+        if np.linalg.svd(V) < 0:
+            U = -U
+            V = -V
         S_new = np.zeros([U.shape[0], 5])
         for i in xrange(4):
             S_new[i,i] = S[i]
@@ -212,6 +225,9 @@ def solve_for_t(pts, K, r1, r3, lane_width):
         
     print "(solve_for_t): Rank(A):", np.linalg.matrix_rank(A)
     U, S, V = numpy.linalg.svd(A)
+    if np.linalg.det(V) < 0:
+        U = -U
+        V = -V
     v = V[-1, :]
     print "    residual: {0}".format(np.linalg.norm(np.dot(A, v)))
     gamma = v[-1]
@@ -268,6 +284,7 @@ def main():
         print
         
     cv2.imwrite("_Irgb_pts.png", Irgb)
+
     print "Done."
 
 if __name__ == '__main__':
