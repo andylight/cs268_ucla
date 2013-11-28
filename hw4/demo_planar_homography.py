@@ -220,10 +220,12 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
         """
         pts_img = np.array([pp_ul, pp_ur, pp_ll, pp_lr], dtype='float32')
         pts_out = np.array([[0.0, 0.0],    # upperleft
-                           [175, 0.0],     # upperright, 0.175 cm * 1000
-                           [0, 134],       # lowerleft   0.134 cm * 1000
+                           [175, 0.0],     # upperright, 17.5 cm * 10
+                           [0.0, 134],       # lowerleft   13.4 cm * 10
                            [175, 134],     # lowerright
                            ], dtype='float32')
+        #pts_out[:,0] += 100 # Translate points forward 100 units to show more of the left poster
+        #pts_out[:,1] += 100 # Translate points down 100 units to show more of the top of the poster
         IPM = cv2.getPerspectiveTransform(pts_img, pts_out)
         return IPM
 
