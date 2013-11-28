@@ -7,7 +7,8 @@ from estimate_line import estimate_line
 from util import intrnd
 
 def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
-                 threshold1=50, threshold2=100, apertureSize=3):
+                 threshold1=50, threshold2=100, apertureSize=3,
+                 show_edges=False):
     """ Given a street image I, detect the (parallel) road lanes
     in image coordinates.
     Input:
@@ -56,6 +57,12 @@ def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
                   (x_right-(w_right/2)):(x_right+(w_right/2))]
     edges_left = cv2.Canny(Iwin_left, threshold1, threshold2, apertureSize=apertureSize)
     edges_right = cv2.Canny(Iwin_rght, threshold1, threshold2, apertureSize=apertureSize)
+    if show_edges:
+        cv2.namedWindow('edgeleft')
+        cv2.imshow('edgeleft', edges_left)
+        cv2.namedWindow('edgeright')
+        cv2.imshow('edgeright', edges_right)
+
     '''
     edges_left = edgemap[(y_left-(h_left/2)):(y_left+(h_left/2)),
                          (x_left-(w_left/2)):(x_left+(w_left/2))]
@@ -63,8 +70,8 @@ def detect_lanes(I, win1=(0.4, 0.55, 0.2, 0.1), win2=(0.6, 0.55, 0.2, 0.1),
                           (x_right-(w_right/2)):(x_right+(w_right/2))]
     '''
     # Find dominant line in each window
-    res1 = estimate_line(edges_left, MAX_ITERS=300)
-    res2 = estimate_line(edges_right, MAX_ITERS=300)
+    res1 = estimate_line(edges_left, MAX_ITERS=300, ALPHA=4, T=1.0)
+    res2 = estimate_line(edges_right, MAX_ITERS=300, ALPHA=4, T=1.0)
     if res1 == None:
         line1, inliers1 = None, None
     else:
