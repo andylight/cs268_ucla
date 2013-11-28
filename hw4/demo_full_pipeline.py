@@ -6,6 +6,28 @@ import calibrate_camera, detect_lanes
 from util import intrnd
 from util_camera import compute_x, compute_y, pt2homo, homo2pt
 
+"""
+USAGE:
+
+    $ python demo_full_pipeline.py
+
+Demos a simple lane-departure warning system on the test images in:
+    LDWS_test_short/
+
+The script first determines the camera calibration parameters by
+processing the planar calibration object in:
+    LDWS_calibrate_short/
+
+Then, each test image is processed, and after the lanes+extrinsic
+parameters are estimated, the following output appears:
+    1.) On stdout, the estimated camera position w.r.t. the middle
+        of the lane (along with a warning if the camera position is
+        too far away from the center).
+    2.) Two image windows display. One with the detected lane positions,
+        and another with a top-down ("birds-eye") view of the road,
+        obtained by undo-ing the perspective distortion.
+"""
+
 IMGSDIR_CALIB = 'LDWS_calibrate_short'
 IMGSDIR_TEST  = 'LDWS_test_short'
 
@@ -19,6 +41,9 @@ def parse_args():
     parser.add_argument("--imgsdir", default=IMGSDIR_TEST,
                         help="Directory of test images. Can be a single \
 image path.")
+    parser.add_argument("--reuse_calib", action='store_true', default=False,
+                        help="Use a precomputed camera calibration matrix, \
+rather than re-computing it.")
     return parser.parse_args()
 
 def main():
@@ -28,12 +53,17 @@ def main():
         imgpaths_test = [args.imgsdir]
     else:
         imgpaths_test  = util.get_imgpaths(args.imgsdir)
-    if True:
+    if args.reuse_calib:
+        print "(Reusing camera calibration matrix)"
         K = np.array([[ 674.07224154,    0.,          262.77722917],
                       [   0.,          670.26875783,  330.21546389],
                       [   0.,            0.,            1.        ]])
     else:
+        print "(Estimating camera matrix...)"
+        t = time.time()
         K = calibrate_camera.calibrate_camera(imgpaths_calib, 8, 8, 0.048)
+        dur = time.time() - t
+        print "(Finished. {0:.4f})".format(dur)
 
     for i, imgpath in enumerate(imgpaths_test):
         print "\n==== ({0}/{1}) Detecting lanes... [{2}]====".format(i+1, len(imgpaths_test), os.path.split(imgpath)[1])
