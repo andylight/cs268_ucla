@@ -20,6 +20,9 @@ The script first determines the camera calibration parameters by
 processing the planar calibration object in:
     LDWS_calibrate_short/
 
+Note: The image directories LDWS_calibrate_short/, LDWS_test_short/
+      must be in the same directory as demo_full_pipeline.py.
+
 Then, each test image is processed, and after the lanes+extrinsic
 parameters are estimated, the following output appears:
     1.) On stdout, the estimated camera position w.r.t. the middle

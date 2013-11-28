@@ -1,0 +1,106 @@
+========================
+==== Quick Overview ====
+========================
+
+The pipeline of the lane departure warning system can be summarized as:
+
+a.) Detect the left and right lanes in the image.
+b.) Estimate the planar homography H that maps the road plane to the
+    image plane.
+c.) Decompose H into extrinsic parameters {R,T}, and determine the
+    location of the camera with respect to the center of the lane
+    based on T.
+
+============================
+==== (a) Lane Detection ====
+============================
+
+Here, we use a combination of the Canny edge detector and RANSAC to
+identify the left/right lanes.
+
+First, we restrict our search region to two image subwindows in which
+we expect the left and right lanes to be present. This has two benefits:
+
+    i.) Reduces amount of confounding edge presences (such as edges
+        found on cars, scenery, etc.).
+    ii.) Reduces computation time.
+
+Within each subwindow, we perform the following:
+
+    i.) Apply the Canny edge detector. This gives us a binary edgemap,
+        with "ON" and "OFF" values.
+    ii.) We find the most-dominant line in the edgemap using RANSAC.
+         The hope is that, IF the lane line is correctly captured by
+         the Canny edge detector, then RANSAC will allow us to robustly
+         recover this line even in the presence of confounding factors
+         (e.g., noise, environmental lines, etc.).
+     
+If we fail to find a dominant line in either subwindow, we output a
+warning, and stop processing the image.
+
+==========================================
+==== (b) Planar Homography Estimation ====
+==========================================
+
+Once we have the lane lines, we can estimate the homography H mapping
+points on the road plane to points on the image plane.
+
+Note that, although we don't have any metric information about the
+depth of points w.r.t. the camera, we *do* have metric information
+about the lane distances: the lanes are separated by 3.66m. 
+
+This information will allow us to estimate an H from which we can
+recover a translation vector T with metric information along the X
+axis.
+
+To estimate H, we choose 4 pixel points on the lanes (two on the left
+lane, and two on the right lane) such that the points are "directly
+across" from each other. 
+
+We then construct world plane points that correspond with these pixel
+coordinates. With respect to the world reference frame (centered in
+the lane), we know the X coordinates of these world points. Any point
+on the left lane will be [-1.83m, gamma], and any point on the right
+lane will be [+1.83m, gamma] (for some gamma indicating depth).
+
+Since we don't know depth information, we arbitrarily choose depth 
+distances alpha, beta:
+
+    [-1.83, alpha]    [1.83, alpha]    # Left lane pt, Right lane pt
+    [-1.83, beta]     [1.83, beta]     # Left lane pt, Right lane pt
+
+with beta < alpha.
+
+We then estimate the homography H that maps the world points to the
+pixel coordinates.
+
+==================================================================
+==== (c) Estimating Extrinsic Parameters (Position of Camera) ====
+==================================================================
+
+Finally, we perform the homography decomposition algorithm to recover
+the {R,T} with respect to the world reference frame (MaSKS, Ch. 5.3).
+
+=============================
+==== Future Improvements ====
+=============================
+
+1.) Robust estimation of lanes over time.
+
+Currently, lanes are estimated in a "one-shot" manner based only on a
+single image. Thus, there may be significant discontinuities in lane
+detections from frame to frame, which is undesirable. Indeed, the
+lane detections should vary smoothly from frame to frame, as the car's
+motion also varies smoothly.
+
+One useful extension would be to apply a filtering/smoothing step to
+the lane detection step, so that previous lane detections are
+considered when determining the current frame's lane positions. For
+instance, the following smoothing step would partially mitigate 
+an inaccurate lane detection, provided the previous lane detections
+were accurate:
+
+    lane_{t}* = ((1 - alpha) * lane_{t-1}) + (alpha * lane_{cur_estimate})
+
+where alpha=[0.0, 1.0] is a tunable parameter weighting the past lane
+estimate with the current lane estimate.
