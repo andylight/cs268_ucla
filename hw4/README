@@ -8,14 +8,23 @@ SID: 904354738
 ==== Instructions ====
 ======================
 
-For a sample run of the line detection, run:
+To run the lane departure warning system demo, run:
 
-    $ python detect_lanes.py imgs_sample
+    $ python demo_full_pipeline.py
 
-This will process the images in imgs_sample/, and output the
-images of the detected lines into the current working directory. 
+This script demos a simple lane-departure warning system on the test
+images in:
+    LDWS_test_short/
 
-For a description of options, use the -h option:
+The script first determines the camera calibration parameters by
+processing the planar calibration object in:
+    LDWS_calibrate_short/
 
-    $ python detect_lanes.py -h
-
+Then, each test image is processed, and after the lanes+extrinsic
+parameters are estimated, the following output appears:
+    1.) On stdout, the estimated camera position w.r.t. the middle
+        of the lane (along with a warning if the camera position is
+        too far away from the center).
+    2.) Two image windows display. One with the detected lane positions,
+        and another with a top-down ("birds-eye") view of the road,
+        obtained by undo-ing the perspective distortion.
