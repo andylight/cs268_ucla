@@ -23,6 +23,12 @@ def intrnd(*args):
     else:
         return [int(round(x)) for x in args]
 
+def tupint(thing):
+    """ Converts a thing of numbers to a tuple of ints (usually used
+    for cv2 functions that *require* tuples of ints.
+    """
+    return tuple([intrnd(x) for x in thing])
+
 def isimgext(path):
     p = path.lower()
     return p.endswith('.png') or p.endswith('.jpeg') or p.endswith('.jpg') or p.endswith('.bmp')

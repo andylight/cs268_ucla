@@ -1,8 +1,8 @@
 import sys, os, pdb, argparse
 import cv2, cv, numpy as np, scipy.misc
 
-import calibrate_camera, util, util_camera
-from util import intrnd
+import calibrate_camera, util, util_camera, transform_image
+from util import intrnd, tupint
 from util_camera import pt2homo, homo2pt
 
 """
@@ -171,55 +171,112 @@ def test_koopa_singleimage(SHOW_EPIPOLAR=False):
     print "world2img errors (in pixels): {0} (mean={1} std={2})".format(sum(errs), np.mean(errs), np.std(errs))
         
     #### Perform Inverse Perspective Mapping (undo perspective effects)
-    p_ul = (372, 97)    # Upperleft of redbox (x,y)
-    p_ur = (651, 95)    # Upperright of redbox (x,y)
-    p_ll = (303, 321)   # Lowerleft of bluebox (x,y)
-    p_lr = (695, 324)   # Lowerright of greenbox (x,y)
+    ## Pixel coordinates of a region of the image known to:
+    ##     a.) Lie on the plane
+    ##     b.) Has known metric lengths
     Hinv = np.linalg.inv(H)
-    def compute_IPM(pp_ul, pp_ur, pp_ll, pp_lr):
-        """ Computes homography that removes the perspective effects
-        from a portion of the image. I believe some call this the 
-        'Inverse Perspective Map' (IPM). We require that we know the
-        world-shape (i.e. a box) of the image region. In this case, we
-        know that the pixel coordinates describe a box with known
-        metric lengths.
-        Input points are image pixel coords.
-
-        Note: This doesn't use the computed H. Why? Well, I hardcoded
-        the worldpoints in pts_out: in general, you can use H, K to 
-        compute the pts_out, i.e.:
-            # pp_ur is pixel coord of upper-right corner of redbox
-            p_ur = np.dot(Kinv, pp_ur)  # p_ur is normalized coord
-            p_world_ur = np.dot(H, p_ur)
-            p_world_ur /= p_world_ur[2] # world plane coord of redbox upper-right corner
-        Now, p_world_ur is [0.175, 0.0, 1.0], as expected.
-        """
-        pts_img = np.array([pp_ul, pp_ur, pp_ll, pp_lr], dtype='float32')
-        pts_out = np.array([[0.0, 0.0],    # upperleft
-                           [175, 0.0],     # upperright, 17.5 cm * 10
-                           [0.0, 134],       # lowerleft   13.4 cm * 10
-                           [175, 134],     # lowerright
-                           ], dtype='float32')
-        #pts_out[:,0] += 100 # Translate points forward 100 units to show more of the left poster
-        #pts_out[:,1] += 100 # Translate points down 100 units to show more of the top of the poster
-        IPM = cv2.getPerspectiveTransform(pts_img, pts_out)
-        return IPM
-
-    IPM = compute_IPM(p_ul, p_ur, p_ll, p_lr)
-    print 'IPM is:'
-    print IPM
+    # Define hardcoded pixel/world coordinates on the poster plane
+    # TODO: We could try generalizing this to new images by:
+    #     a.) Asking the user to choose four image points, and enter
+    #         in metric length information (simplest)
+    #     b.) Automatically detect four corner points that correspond
+    #         to a world rectangle (somehow). If there are no 
+    #         reference lengths, then I believe the best thing we can
+    #         do is do a perspective-correction up to an affine 
+    #         transformation (since we don't know the correct X/Y
+    #         lengths).
+    pts_pix = np.array([[372.0, 97.0],     # Upperleft of redbox (x,y)
+                        [651.0, 95.0],     # Upperright of redbox (x,y)
+                        [303.0, 321.0],    # Lowerleft of bluebox (x,y)
+                        [695.0, 324.0]],   # Lowerright of greenbox (x,y)
+                       )
+    pts_world = np.zeros([0, 2])
+    # Populate pts_world via H (maps image plane -> world plane)
+    for pt_pix in pts_pix:
+        pt_world = homo2pt(np.dot(H, np.dot(Kinv, pt2homo(pt_pix))))
+        pts_world = np.vstack((pts_world, pt_world))
+    pts_world *= 1000.0 # Let's get a reasonable-sized image please!
+    
+    # These are hardcoded world coords, but, we can auto-gen them via
+    # H, Kinv as above. Isn't geometry nice?
+    #pts_world = np.array([[0.0, 0.0],
+    #                      [175.0, 0.0],
+    #                      [0.0, 134.0],
+    #                      [175.0, 134.0]])
+    IPM0, IPM1 = compute_IPM(pts_pix, pts_world)
+    print 'IPM0 is:'
+    print IPM0
+    print 'IPM1 is:'
+    print IPM1
     I = cv2.imread(imgpath, cv.CV_LOAD_IMAGE_COLOR).astype('float64')
     I = (2.0*I) + 40    # Up that contrast! Orig. images are super dark.
-    # Ipatch = I[p_ul[1]:p_lr[1], p_ul[0]:p_lr[1]]
-    # Let's warp the entire image I with the homography, rather than
-    # just the Ipatch.
-    Iwarp = cv2.warpPerspective(I, IPM, None)
+    h, w = I.shape[0:2]
+    # Determine bounding box of IPM-corrected image
+    a = homo2pt(np.dot(IPM1, pt2homo([0.0, 0.0])))  # upper-left corner
+    b = homo2pt(np.dot(IPM1, pt2homo([w-1, 0.0])))  # upper-right corner
+    c = homo2pt(np.dot(IPM1, pt2homo([0.0, h-1])))  # lower-left corner
+    d = homo2pt(np.dot(IPM1, pt2homo([w-1, h-1])))  # lower-right corner
+    w_out = intrnd(max(b[0] - a[0], d[0] - c[0]))
+    h_out = intrnd(max(c[1] - a[1], d[1] - b[1]))
+    print "New image dimensions: ({0} x {1}) (Orig: {2} x {3})".format(w_out, h_out, w, h)
+    # Warp the entire image I with the homography IPM1
+    Iwarp = cv2.warpPerspective(I, IPM1, (w_out, h_out))
+    # Draw selected points on I
+    for pt in pts_pix:
+        cv2.circle(I, tupint(pt), 5, (0, 255, 0))
+    # Draw rectified-rectangle in Iwarp
+    a = homo2pt(np.dot(IPM1, pt2homo(pts_pix[0])))
+    b = homo2pt(np.dot(IPM1, pt2homo(pts_pix[3])))
+    cv2.rectangle(Iwarp, tupint(a), tupint(b), (0, 255, 0))
+    #Iwarp = transform_image.transform_image_forward(I, IPM)
     print "(Displaying before/after images, press <any key> to exit.)"
     cv2.namedWindow('original')
     cv2.imshow('original', I.astype('uint8'))
     cv2.namedWindow('corrected')
     cv2.imshow('corrected', Iwarp.astype('uint8'))
     cv2.waitKey(0)
+
+def compute_IPM(pts_pix, pts_world):
+    """ Computes the homography that maps four points in pixel coords
+    to four points in world coords.
+    This is known as the 'Inverse Perspective Map' (IPM), as it can
+    be used to undo perspective effects in an image if you can
+    identify four points in the image that correspond to a rectangle
+    with known metric lengths.
+    Note: for pts_world, you don't have to input exactly the metrix
+          lengths: instead, you should scale the dimensions to achieve
+          an output image of desired size. For instance, if you input:
+          # A rectangle that is (1.2 meters x 1.4 meters):
+              pts_world = [[0.0, 1.2],
+                           [1.4, 0.0],
+                           [0.0, 1.2],
+                           [1.4, 1.2]]
+          You'll get an output image where the selected region is of
+          size (1.2 x 1.4) pixels, which is probably not what you
+          wanted! Instead, you can scale the dimensions:
+              pts_world *= 100     # Now, region is (120 x 140) pix!
+    Input:
+        nparray pts_pix: N x 2
+        nparray pts_world: N x 2
+    Output:
+        (nparray IPM0, nparray IPM1)
+    Here, IPM0 is the computed that results in the pts_pix as the new
+    image origin. This will result in the rest of the image being
+    omitted. If you wish to apply the IPM such that the entire image
+    is displayed, use IPM1.
+    """
+    pts_pix = pts_pix.copy().astype('float32')
+    pts_world = pts_world.copy().astype('float32')
+    IPM0 = cv2.getPerspectiveTransform(pts_pix, pts_world)
+    # Determine where (0,0) lands in IPM0's image, and do an offset
+    # to ensure that the entire image is displayed with IPM1
+    origin_new = homo2pt(np.dot(IPM0, pt2homo([0.0, 0.0])))
+    if origin_new[0] < 0:
+        pts_world[:, 0] += abs(origin_new[0])
+    if origin_new[1] < 0:
+        pts_world[:, 1] += abs(origin_new[1])
+    IPM1 = cv2.getPerspectiveTransform(pts_pix, pts_world)
+    return IPM0, IPM1
 
 def normalize_coords(pts, K):
     """ Normalize pixel coordinates into image coordinates with
